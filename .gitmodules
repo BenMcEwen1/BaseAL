@@ -1,0 +1,3 @@
+[submodule "bacpipe"]
+	path = bacpipe
+	url = https://github.com/bioacoustic-ai/bacpipe.git

@@ -1,0 +1,26 @@
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "BaseAL"
+version = "0.1.0"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "bacpipe",
+]
+
+[tool.setuptools]
+packages = ["audio", "bacpipe"]
+
+[tool.uv]
+required-environments = ["sys_platform == 'win32' and python_full_version >= '3.11' and python_full_version < '3.13'"]
+
+[tool.uv.workspace]
+members = [
+    "bacpipe",
+]
+
+[tool.uv.sources]
+bacpipe = { workspace = true }
