@@ -1,5 +1,6 @@
-./audio/*
+data
 *.wav
 .venv
+*.egg-info
 
-./bacpipe/bacpipe/model_checkpoints/*
+bacpipe_results

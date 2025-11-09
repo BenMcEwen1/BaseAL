@@ -1,4 +1,3 @@
-
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
@@ -11,8 +10,9 @@ dependencies = [
     "bacpipe",
 ]
 
+
 [tool.setuptools]
-packages = ["audio", "bacpipe"]
+packages = ["data"]  # REMOVED bacpipe from here - it's a workspace member, not part of BaseAL
 
 [tool.uv]
 required-environments = ["sys_platform == 'win32' and python_full_version >= '3.11' and python_full_version < '3.13'"]
