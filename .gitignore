@@ -2,5 +2,6 @@ data
 *.wav
 .venv
 *.egg-info
+.claude
 
 bacpipe_results

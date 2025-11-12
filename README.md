@@ -1,5 +1,39 @@
 # BaseAL - Active Learning Baseline (Audio)
 
+## TODO
+- [ ] Verify setup of active learning pipeline, create separate script which prints output
+- [ ] Review bacpipe embedding and prediction generation, annotation format etc
+
+## Quick Start
+
+### 1. Start the API Server
+
+```bash
+cd api
+pip install -r requirements.txt
+python main.py
+```
+
+The API will be available at `http://localhost:8000`
+
+### 2. Start the Web Interface
+
+```bash
+cd app
+npm install
+npm run dev
+```
+
+The web interface will be available at `http://localhost:5173`
+
+### 3. Visualize Your Embeddings
+
+1. Open the web interface in your browser
+2. Check "Use Real Embeddings (API)"
+3. Select a model and dataset from the dropdowns
+4. Click "Load Embeddings"
+5. Use the Previous/Next buttons to step through the clustering progression
+
 ## Planning
 ModAL - basic active learning functionality
 Bacpipe - Embedding generation and bioacoustics model integration

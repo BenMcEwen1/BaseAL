@@ -8,6 +8,9 @@ version = "0.1.0"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "bacpipe",
+    "flask>=3.1.2",
+    "gradio>=5.49.1",
+    "plotly>=6.4.0",
 ]
 
 
@@ -19,7 +22,7 @@ required-environments = ["sys_platform == 'win32' and python_full_version >= '3.
 
 [tool.uv.workspace]
 members = [
-    "bacpipe",
+    "bacpipe"
 ]
 
 [tool.uv.sources]
