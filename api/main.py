@@ -399,7 +399,6 @@ def sample_next_batch(n_samples: int = 200):
         Selected indices and updated state
     """
     global active_learner
-    print(n_samples)
 
     if active_learner is None:
         raise HTTPException(status_code=400, detail="Active learner not initialized. Call /initialize first.")
@@ -440,6 +439,8 @@ def train_model(epochs: int = 10, batch_size: int = 8):
 
     try:
         metrics = active_learner.train_step(epochs=epochs, batch_size=batch_size)
+
+        print(active_learner.get_state())
 
         return {
             "metrics": metrics,

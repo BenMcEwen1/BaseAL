@@ -18,6 +18,13 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
 
   currentStepRef.current = currentStep;
 
+  // Create a unique key based on labels and labeledMask to force recreation when colors change
+  const colorKey = useMemo(() => {
+    const labelsStr = labels ? labels.join(',') : 'no-labels';
+    const maskStr = labeledMask ? labeledMask.map(m => m ? '1' : '0').join('') : 'no-mask';
+    return `${labelsStr}-${maskStr}`;
+  }, [labels, labeledMask]);
+
   // Convert embedding data to Float32Arrays and generate colors
   const { positionSteps, colors } = useMemo(() => {
     const steps = embeddingData.map(stepData => {
@@ -35,21 +42,21 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
     const cols = new Float32Array(count * 3);
 
     if (labels && labels.length === count) {
-      console.log("Setting colours")
+      // console.log("Setting colours")
       // Find unique labels to determine number of classes
       const uniqueLabels = [...new Set(labels)];
       const numClasses = uniqueLabels.length;
-      console.log('Unique labels:', uniqueLabels, 'Num classes:', numClasses);
-      console.log('First 10 label indices:', labels.slice(0, 10));
+      // console.log('Unique labels:', uniqueLabels, 'Num classes:', numClasses);
+      // console.log('First 10 label indices:', labels.slice(0, 10));
 
       // Generate distinct colors for each label
       for (let i = 0; i < count; i++) {
         const labelIndex = labels[i];
         const hue = (labelIndex / numClasses) * 360;
 
-        if (i < 5) {
-          console.log(`Point ${i}: labelIndex=${labelIndex}, hue=${hue}`);
-        }
+        // if (i < 5) {
+        //   console.log(`Point ${i}: labelIndex=${labelIndex}, hue=${hue}`);
+        // }
 
         // Convert HSL to RGB for vibrant, distinct colors
         const h = hue / 60;
@@ -73,13 +80,13 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
         cols[i * 3 + 1] = (g + m) * intensity;
         cols[i * 3 + 2] = (b + m) * intensity;
 
-        if (i < 5) {
-          console.log(`  RGB: [${cols[i * 3]}, ${cols[i * 3 + 1]}, ${cols[i * 3 + 2]}], isLabeled=${isLabeled}`);
-        }
+        // if (i < 5) {
+        //   console.log(`  RGB: [${cols[i * 3]}, ${cols[i * 3 + 1]}, ${cols[i * 3 + 2]}], isLabeled=${isLabeled}`);
+        // }
       }
-      console.log('Color array sample (first 15 values):', cols.slice(0, 15));
+      // console.log('Color array sample (first 15 values):', cols.slice(0, 15));
     } else {
-      console.log("Using fallback colours")
+      // console.log("Using fallback colours")
       // Fallback: Generate colors based on which cluster each point belongs to
       for (let i = 0; i < count; i++) {
         const cluster = Math.floor(i / 100) / 5;
@@ -131,7 +138,7 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
   });
 
   return (
-    <points ref={pointsRef} key={`points-${colors.length}`}>
+    <points ref={pointsRef} key={colorKey}>
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
