@@ -373,7 +373,7 @@ def initialize_active_learner(model_name: str = "2025-11-13_21-42___birdnet-test
             annotations_path=annotations_path,
             model_name=base_model_name,
             dataset_name=dataset_name,
-            hidden_dim=1024,
+            hidden_dim=127,
             learning_rate=0.001,
             device="cpu"
         )
@@ -422,7 +422,7 @@ def sample_next_batch(n_samples: int = 200):
 
 
 @app.post("/api/active-learning/train")
-def train_model(epochs: int = 10, batch_size: int = 8):
+def train_model(epochs: int = 5, batch_size: int = 8):
     """
     Train the model on the current labeled set
 
@@ -441,7 +441,7 @@ def train_model(epochs: int = 10, batch_size: int = 8):
     try:
         metrics = active_learner.train_step(epochs=epochs, batch_size=batch_size)
 
-        print(active_learner.get_state())
+        # print(active_learner.get_state())
 
         return {
             "metrics": metrics,

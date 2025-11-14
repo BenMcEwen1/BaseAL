@@ -92,6 +92,19 @@ class ActiveLearner:
         self.learning_rate = learning_rate
         self.device = device
 
+        self.dim_reduction_method = "UMAP"
+
+        self.umap_config = {
+                "n_neighbors": 10,
+                "min_dist": 0.1,
+                "n_components": 3,
+                "metric": "euclidean",
+                "random_state": 42,
+                "low_memory": True,
+                "n_epochs": 100,
+                "init": "spectral",
+            }
+
         # Load data
         import sys
         print("="*50, file=sys.stderr)
@@ -220,7 +233,7 @@ class ActiveLearner:
 
         logger.info(f"Added {len(indices)} samples. Labeled: {len(self.labeled_indices)}, Unlabeled: {len(self.unlabeled_indices)}")
 
-    def train_step(self, epochs: int = 10, batch_size: int = 8) -> Dict:
+    def train_step(self, epochs: int = 5, batch_size: int = 8) -> Dict:
         """
         Train the model on the current labeled set
 
@@ -250,6 +263,8 @@ class ActiveLearner:
             X_train_shuffled = X_train_orig[perm]
             y_train_shuffled = y_train_orig[perm]
 
+            train_length = X_train_shuffled.shape[0]
+
             epoch_loss = 0.0
 
             # Mini-batch training
@@ -268,7 +283,7 @@ class ActiveLearner:
 
                 epoch_loss += loss.item()
 
-            total_loss = epoch_loss
+            total_loss = epoch_loss / train_length
 
         # Calculate final accuracy on labeled set (using ORIGINAL unshuffled order)
         self.model.eval()
@@ -284,7 +299,7 @@ class ActiveLearner:
             correct = (predicted == labels).sum().item()
             total = len(labels)
 
-        print(correct, total)
+        # print(correct, total)
         accuracy = correct / total if total > 0 else 0.0
         avg_loss = total_loss / max(1, len(X_train_orig) // batch_size)
 
@@ -325,40 +340,24 @@ class ActiveLearner:
             self.scaler = StandardScaler()
             embeddings_scaled = self.scaler.fit_transform(embeddings)
 
-            self.pca = PCA(n_components=3)
-            embeddings_3d = self.pca.fit_transform(embeddings_scaled)
+            if self.dim_reduction_method == "PCA":
+                self.pca = PCA(n_components=3)
+                embeddings_3d = self.pca.fit_transform(embeddings_scaled)
+            elif self.dim_reduction_method == "UMAP":
+                self.pca = umap.UMAP(**self.umap_config)
+                embeddings_3d = self.pca.fit_transform(embeddings_scaled)
         else:
-            print("PCA applied here")
             # Reuse the fitted transformation
-            # embeddings_scaled = self.scaler.transform(embeddings)
+            embeddings_scaled = self.scaler.transform(embeddings)
+            print(embeddings_scaled.shape)
 
-            umap_config = {
-                "n_neighbors": 10,
-                "min_dist": 0.1,
-                "n_components": 3,
-                "metric": "euclidean",
-                "random_state": 42,
-                "low_memory": True,
-                "n_epochs": 100,
-                "init": "spectral",
-            }
+            if self.dim_reduction_method == "PCA":
+                embeddings_3d = self.pca.transform(embeddings_scaled)
+            elif self.dim_reduction_method == "UMAP":
+                embeddings_3d = self.pca.transform(embeddings_scaled)
 
-            self.scaler = StandardScaler()
-            embeddings_scaled = self.scaler.fit_transform(embeddings)
-
-            n_subset = 1000
-            subset_indices = np.random.choice(len(embeddings), n_subset, replace=False)
-            embeddings_subset = embeddings_scaled[subset_indices]
-
-            reducer = umap.UMAP(**umap_config)
-            reducer.fit(embeddings_subset)
-            embeddings_3d = reducer.transform(embeddings_scaled)
-            print(embeddings_3d.shape)
-
-            # self.pca = PCA(n_components=3)
-            # embeddings_3d = self.pca.fit_transform(embeddings_scaled)
-            # embeddings_3d = self.pca.transform(embeddings_scaled)
-            # print(embeddings_3d.shape)
+        # Center the embeddings at the origin for better camera rotation
+        embeddings_3d = embeddings_3d - embeddings_3d.mean(axis=0)
 
         return embeddings_3d
 

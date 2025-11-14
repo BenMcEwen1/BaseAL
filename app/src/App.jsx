@@ -145,6 +145,33 @@ export default function App() {
     }
   };
 
+  const trainAll = async () => {
+    setLoading(true);
+    setError(null);
+
+    while (alState.n_unlabeled > 0) {
+      console.log(alState.n_unlabeled)
+      try {
+        // Sample next batch
+        const sampleResult = await sampleNextBatch(n_samples);
+        setAlState(sampleResult.state);
+
+        // Train model
+        const trainResult = await trainModel(10, 8);
+        setAlState(trainResult.state);
+        setTrainingMetrics(trainResult.metrics);
+
+        // Update embeddings visualization
+        await updateEmbeddings();
+      } catch (err) {
+        setError(`Failed to sample and train: ${err.message}`);
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const updateEmbeddings = async () => {
     try {
       const data = await getActiveLearningEmbeddings();
@@ -189,7 +216,7 @@ export default function App() {
         <div style={{
           display: 'flex',
           padding: '15px 20px',
-          borderBottom: '1px solid #444',
+          // borderBottom: '1px solid #444',
           background: '#0a0a0a'
         }}>
           <button
@@ -304,7 +331,7 @@ export default function App() {
                       value={n_samples}
                       onChange={(e) => setSamples(e.target.value)}
                       style={{
-                        width: '100%',
+                        // width: '100%',
                         padding: '10px',
                         borderRadius: '4px',
                         border: '1px solid #444',
@@ -389,6 +416,28 @@ export default function App() {
                   >
                     {loading ? 'Training...' : `Sample & Train (${n_samples} samples)`}
                   </button>
+
+                  {/* New endpoint */}
+                  <button
+                    onClick={trainAll}
+                    disabled={loading || alState.n_unlabeled === 0}
+                    style={{
+                      width: '100%',
+                      padding: '12px 20px',
+                      marginTop: "10px",
+                      fontSize: '16px',
+                      background: loading || alState.n_unlabeled === 0 ? '#666' : '#4ae290',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: loading || alState.n_unlabeled === 0 ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Run all
+                  </button>
+
+
                 </div>
               )}
             </>
@@ -422,7 +471,7 @@ export default function App() {
 
       {/* Right Canvas - 2/3 width */}
       <div style={{ width: '66.67%', height: '100vh' }}>
-        <Canvas camera={{ position: [8, 8, 8], fov: 60 }}>
+        <Canvas camera={{ position: [5, 5, 5], fov: 20 }}>
           <ambientLight intensity={0.8} />
           <pointLight position={[10, 10, 10]} intensity={0.5} />
           <pointLight position={[-10, -10, -10]} intensity={0.3} />
@@ -433,7 +482,15 @@ export default function App() {
             labelNames={labelNames}
             labeledMask={labeledMask}
           />
-          <OrbitControls enableDamping dampingFactor={0.04} autoRotate={true} autoRotateSpeed={0.05}/>
+          <OrbitControls
+            enableDamping
+            dampingFactor={0.04}
+            autoRotate={true}
+            autoRotateSpeed={0.1}
+            target={[0, 0, 0]}
+            minDistance={3}
+            maxDistance={20}
+          />
         </Canvas>
       </div>
     </div>

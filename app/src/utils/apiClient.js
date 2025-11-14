@@ -153,7 +153,7 @@ export async function sampleNextBatch(nSamples = 200) {
  * @param {number} batchSize - Batch size (default: 8)
  * @returns {Promise<Object>} Training metrics and updated state
  */
-export async function trainModel(epochs = 10, batchSize = 8) {
+export async function trainModel(epochs = 5, batchSize = 8) {
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/active-learning/train?epochs=${epochs}&batch_size=${batchSize}`,
