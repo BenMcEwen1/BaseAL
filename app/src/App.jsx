@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import PointCluster from './components/PointCluster';
-import { generateEmbeddingSteps } from './utils/generatePoints';
 import Analytics from './components/Analytics'
 import {
   fetchModels,
@@ -17,7 +16,7 @@ import {
 
 export default function App() {
   const [step, setStep] = useState(0);
-  const [embeddingSteps, setEmbeddingSteps] = useState(generateEmbeddingSteps(500, 5));
+  const [embeddingSteps, setEmbeddingSteps] = useState([]);
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState(null);
   const [datasets, setDatasets] = useState([]);
@@ -434,7 +433,7 @@ export default function App() {
             labelNames={labelNames}
             labeledMask={labeledMask}
           />
-          <OrbitControls enableDamping dampingFactor={0.04} />
+          <OrbitControls enableDamping dampingFactor={0.04} autoRotate={true} autoRotateSpeed={0.05}/>
         </Canvas>
       </div>
     </div>

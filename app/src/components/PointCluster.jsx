@@ -27,6 +27,11 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
 
   // Convert embedding data to Float32Arrays and generate colors
   const { positionSteps, colors } = useMemo(() => {
+    // Handle empty data case
+    if (!embeddingData || embeddingData.length === 0) {
+      return { positionSteps: [], colors: new Float32Array(0) };
+    }
+
     const steps = embeddingData.map(stepData => {
       const positions = new Float32Array(stepData.length * 3);
       stepData.forEach((point, i) => {
@@ -99,8 +104,15 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
     return { positionSteps: steps, colors: cols };
   }, [embeddingData, labels, labeledMask]);
 
-  // Initialize with first step positions
-  const currentPositions = useRef(new Float32Array(positionSteps[0]));
+  // Initialize with first step positions (or empty if no data)
+  const currentPositions = useRef(
+    positionSteps.length > 0 ? new Float32Array(positionSteps[0]) : new Float32Array(0)
+  );
+
+  // Update currentPositions when we get new data
+  if (positionSteps.length > 0 && currentPositions.current.length === 0) {
+    currentPositions.current = new Float32Array(positionSteps[0]);
+  }
 
   // Create circle texture for points with hard edge
   const circleTexture = useMemo(() => {
@@ -125,7 +137,7 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
 
   // Animate transition between steps
   useFrame(() => {
-    if (!pointsRef.current) return;
+    if (!pointsRef.current || positionSteps.length === 0) return;
 
     const positions = currentPositions.current;
     const target = positionSteps[currentStepRef.current];
@@ -136,6 +148,11 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
 
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
   });
+
+  // Return null if there's no data to display
+  if (positionSteps.length === 0) {
+    return null;
+  }
 
   return (
     <points ref={pointsRef} key={colorKey}>
@@ -154,7 +171,7 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.35}
+        size={0.1}
         vertexColors
         sizeAttenuation
         map={circleTexture}

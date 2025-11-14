@@ -9,11 +9,53 @@ from pathlib import Path
 import pandas as pd
 from typing import List, Tuple, Dict, Optional
 import logging
+import warnings
+import os
+import umap
+
+# Suppress numba warnings and debug output
+warnings.filterwarnings('ignore', module='numba')
+warnings.filterwarnings('ignore', category=FutureWarning)
+os.environ['NUMBA_DISABLE_PERFORMANCE_WARNINGS'] = '1'
+
+# Set numba logging to WARNING to avoid verbose compilation details
+logging.getLogger('numba').setLevel(logging.WARNING)
 
 from .model import EmbeddingClassifier
 
-logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+# Pre-warm UMAP at module import time to trigger numba JIT compilation
+def _prewarm_umap_module():
+    """
+    Pre-warm UMAP by running a small dummy fit to trigger numba JIT compilation.
+    This runs once at module import time, not during ActiveLearner initialization.
+    """
+    try:
+        logger.info("Pre-warming UMAP (triggering numba JIT compilation)...")
+
+        # Create small dummy dataset
+        dummy_data = np.random.randn(100, 10).astype(np.float32)
+
+        # Run a quick UMAP fit with parameters similar to what we'll use
+        dummy_reducer = umap.UMAP(
+            n_neighbors=10,
+            n_components=3,
+            metric="euclidean",
+            low_memory=True,
+            verbose=False
+        )
+        _ = dummy_reducer.fit_transform(dummy_data)
+
+        logger.info("UMAP pre-warming complete")
+    except Exception as e:
+        logger.warning(f"UMAP pre-warming failed (non-critical): {e}")
+
+
+# Execute pre-warming immediately at module import
+_prewarm_umap_module()
 
 
 class ActiveLearner:
@@ -286,9 +328,37 @@ class ActiveLearner:
             self.pca = PCA(n_components=3)
             embeddings_3d = self.pca.fit_transform(embeddings_scaled)
         else:
+            print("PCA applied here")
             # Reuse the fitted transformation
-            embeddings_scaled = self.scaler.transform(embeddings)
-            embeddings_3d = self.pca.transform(embeddings_scaled)
+            # embeddings_scaled = self.scaler.transform(embeddings)
+
+            umap_config = {
+                "n_neighbors": 10,
+                "min_dist": 0.1,
+                "n_components": 3,
+                "metric": "euclidean",
+                "random_state": 42,
+                "low_memory": True,
+                "n_epochs": 100,
+                "init": "spectral",
+            }
+
+            self.scaler = StandardScaler()
+            embeddings_scaled = self.scaler.fit_transform(embeddings)
+
+            n_subset = 1000
+            subset_indices = np.random.choice(len(embeddings), n_subset, replace=False)
+            embeddings_subset = embeddings_scaled[subset_indices]
+
+            reducer = umap.UMAP(**umap_config)
+            reducer.fit(embeddings_subset)
+            embeddings_3d = reducer.transform(embeddings_scaled)
+            print(embeddings_3d.shape)
+
+            # self.pca = PCA(n_components=3)
+            # embeddings_3d = self.pca.fit_transform(embeddings_scaled)
+            # embeddings_3d = self.pca.transform(embeddings_scaled)
+            # print(embeddings_3d.shape)
 
         return embeddings_3d
 
