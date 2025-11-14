@@ -475,7 +475,11 @@ dependencies = [
     { name = "bacpipe" },
     { name = "flask" },
     { name = "gradio" },
+    { name = "pandas" },
     { name = "plotly" },
+    { name = "scikit-learn" },
+    { name = "tensorflow", version = "2.15.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "torch" },
 ]
 
 [package.metadata]
@@ -483,7 +487,11 @@ requires-dist = [
     { name = "bacpipe", editable = "bacpipe" },
     { name = "flask", specifier = ">=3.1.2" },
     { name = "gradio", specifier = ">=5.49.1" },
+    { name = "pandas", specifier = ">=2.2.3" },
     { name = "plotly", specifier = ">=6.4.0" },
+    { name = "scikit-learn", specifier = ">=1.7.1" },
+    { name = "tensorflow", marker = "sys_platform == 'win32'", specifier = "==2.15.1" },
+    { name = "torch", specifier = ">=2.6" },
 ]
 
 [[package]]

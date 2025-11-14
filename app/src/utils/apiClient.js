@@ -131,7 +131,7 @@ export async function initializeActiveLearning(modelName, datasetName) {
  * @param {number} nSamples - Number of samples to select (default: 5)
  * @returns {Promise<Object>} Selected indices and updated state
  */
-export async function sampleNextBatch(nSamples = 5) {
+export async function sampleNextBatch(nSamples = 200) {
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/active-learning/sample?n_samples=${nSamples}`,

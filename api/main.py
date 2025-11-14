@@ -10,6 +10,7 @@ import logging
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import sys
+import bacpipe
 
 # Add core module to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -32,8 +33,8 @@ app.add_middleware(
 
 # Base paths
 BASE_DIR = Path(__file__).parent.parent
-EMBEDDINGS_BASE_PATH = BASE_DIR / "bacpipe_results" / "test_data" / "embeddings"
-ANNOTATIONS_BASE_PATH = BASE_DIR / "bacpipe_results" / "test_data" / "evaluations"
+EMBEDDINGS_BASE_PATH = BASE_DIR / "results" / "test_data" / "embeddings"
+ANNOTATIONS_BASE_PATH = BASE_DIR / "results" / "test_data" / "evaluations"
 
 # Global active learner instance
 active_learner: Optional[ActiveLearner] = None
@@ -101,9 +102,17 @@ def load_embeddings_from_folder(folder_path: Path) -> List[Dict[str, Any]]:
 
 
 @app.get("/")
-def read_root():
-    """Root endpoint"""
+def info():
     return {"message": "BaseAL Embeddings API", "version": "1.0.0"}
+
+@app.get("/api/generate")
+def generate_embeddings():
+    try:
+        bacpipe.play(save_logs=False)
+    except:
+        raise HTTPException(status_code=404, detail=f"Embedding generation failed")
+    return {"status": "complete"}
+
 
 
 @app.get("/api/models")
@@ -118,6 +127,8 @@ def list_models():
                     "name": model_dir.name,
                     "path": str(model_dir.relative_to(EMBEDDINGS_BASE_PATH))
                 })
+    else:
+        raise Exception(status_code=404, detail=f"Embedding base path {EMBEDDINGS_BASE_PATH} doesn't exist")
 
     return {"models": models}
 
@@ -322,7 +333,7 @@ def get_embeddings_steps(model_name: str, dataset_name: str, n_steps: int = 4):
 # ==================== Active Learning Endpoints ====================
 
 @app.post("/api/active-learning/initialize")
-def initialize_active_learner(model_name: str = "2025-11-09_10-27___birdnet-test_data", dataset_name: str = "FewShot"):
+def initialize_active_learner(model_name: str = "2025-11-13_21-42___birdnet-test_data", dataset_name: str = "esc50"):
     """
     Initialize the active learning pipeline
 
@@ -377,7 +388,7 @@ def initialize_active_learner(model_name: str = "2025-11-09_10-27___birdnet-test
 
 
 @app.post("/api/active-learning/sample")
-def sample_next_batch(n_samples: int = 5):
+def sample_next_batch(n_samples: int = 200):
     """
     Sample next batch using active learning strategy
 
@@ -388,6 +399,7 @@ def sample_next_batch(n_samples: int = 5):
         Selected indices and updated state
     """
     global active_learner
+    print(n_samples)
 
     if active_learner is None:
         raise HTTPException(status_code=400, detail="Active learner not initialized. Call /initialize first.")
@@ -493,4 +505,4 @@ def get_active_learning_state():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)

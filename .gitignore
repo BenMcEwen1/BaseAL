@@ -4,4 +4,5 @@ data
 *.egg-info
 .claude
 
-bacpipe_results
+results
+test_data

@@ -11,11 +11,15 @@ dependencies = [
     "flask>=3.1.2",
     "gradio>=5.49.1",
     "plotly>=6.4.0",
+    "torch>=2.6",
+    "scikit-learn>=1.7.1",
+    "pandas>=2.2.3",
+    "tensorflow==2.15.1; sys_platform == 'win32'",
 ]
 
 
 [tool.setuptools]
-packages = ["data"]  # REMOVED bacpipe from here - it's a workspace member, not part of BaseAL
+packages = []  # No packages to include - BaseAL is a project root, not a package
 
 [tool.uv]
 required-environments = ["sys_platform == 'win32' and python_full_version >= '3.11' and python_full_version < '3.13'"]

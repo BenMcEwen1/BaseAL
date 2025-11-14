@@ -23,11 +23,15 @@ export default function App() {
   const [selectedDataset, setSelectedDataset] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [useAPI, setUseAPI] = useState(false);
-  const [useActiveLearning, setUseActiveLearning] = useState(false);
+  const [useAPI, setUseAPI] = useState(true);
+  const [useActiveLearning, setUseActiveLearning] = useState(true);
   const [alState, setAlState] = useState(null);
   const [trainingMetrics, setTrainingMetrics] = useState(null);
-  
+  const [n_samples, setSamples] = useState(10);
+  const [labels, setLabels] = useState(null);
+  const [labelNames, setLabelNames] = useState(null);
+  const [labeledMask, setLabeledMask] = useState(null);
+
   // Load models on component mount
   useEffect(() => {
     const loadModels = async () => {
@@ -122,7 +126,7 @@ export default function App() {
 
     try {
       // Sample next batch
-      const sampleResult = await sampleNextBatch(5);
+      const sampleResult = await sampleNextBatch(n_samples);
       setAlState(sampleResult.state);
 
       // Train model
@@ -145,6 +149,9 @@ export default function App() {
       const data = await getActiveLearningEmbeddings();
       // Convert to point format (single step)
       setEmbeddingSteps([data.coordinates]);
+      setLabels(data.labels);
+      setLabelNames(data.label_names);
+      setLabeledMask(data.labeled_mask);
       setStep(0);
     } catch (err) {
       console.error('Failed to update embeddings:', err);
@@ -165,8 +172,14 @@ export default function App() {
         <ambientLight intensity={0.8} />
         <pointLight position={[10, 10, 10]} intensity={0.5} />
         <pointLight position={[-10, -10, -10]} intensity={0.3} />
-        <PointCluster embeddingData={embeddingSteps} currentStep={step} />
-        <OrbitControls enableDamping dampingFactor={0.05} />
+        <PointCluster
+          embeddingData={embeddingSteps}
+          currentStep={step}
+          labels={labels}
+          labelNames={labelNames}
+          labeledMask={labeledMask}
+        />
+        <OrbitControls enableDamping dampingFactor={0.04} />
       </Canvas>
       
       {/* Controls Panel */}
@@ -179,8 +192,7 @@ export default function App() {
         gap: '10px',
         maxWidth: '400px'
       }}>
-        {/* Toggle API mode */}
-        <div style={{
+        {/* <div style={{
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
@@ -208,7 +220,7 @@ export default function App() {
               Active Learning Mode
             </label>
           )}
-        </div>
+        </div> */}
 
         {/* Model and Dataset Selection */}
         {useAPI && (
@@ -264,6 +276,12 @@ export default function App() {
                   </option>
                 ))}
               </select>
+
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
+                Sample number (n):
+              </label>
+              <input type='number' onChange={(e) => setSamples(e.target.value)}/>
+              <p>{n_samples}</p>
             </div>
 
             <button
@@ -299,7 +317,7 @@ export default function App() {
         )}
 
         {/* Active Learning Controls or Step Navigation */}
-        {useActiveLearning && alState ? (
+        { useActiveLearning && alState && (
           <div style={{
             background: '#2a2a2a',
             padding: '12px 20px',
@@ -332,55 +350,6 @@ export default function App() {
               }}
             >
               {loading ? 'Training...' : 'Sample & Train (5 samples)'}
-            </button>
-          </div>
-        ) : !useActiveLearning && (
-          <div style={{
-            display: 'flex',
-            gap: '10px',
-            alignItems: 'center'
-          }}>
-            <button
-              onClick={prevStep}
-              style={{
-                padding: '12px 20px',
-                fontSize: '16px',
-                background: '#4a90e2',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              ← Previous
-            </button>
-
-            <div style={{
-              padding: '12px 20px',
-              fontSize: '16px',
-              background: '#2a2a2a',
-              color: 'white',
-              borderRadius: '8px',
-              fontWeight: 'bold'
-            }}>
-              Step {step + 1} / {embeddingSteps.length}
-            </div>
-
-            <button
-              onClick={nextStep}
-              style={{
-                padding: '12px 20px',
-                fontSize: '16px',
-                background: '#4a90e2',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              Next →
             </button>
           </div>
         )}

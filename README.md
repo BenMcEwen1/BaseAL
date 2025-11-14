@@ -2,6 +2,8 @@
 
 ## TODO
 - [ ] Verify setup of active learning pipeline, create separate script which prints output
+This use play() and specify path
+
 - [ ] Review bacpipe embedding and prediction generation, annotation format etc
 
 ## Quick Start

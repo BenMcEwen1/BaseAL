@@ -12,7 +12,7 @@ import logging
 
 from .model import EmbeddingClassifier
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +28,7 @@ class ActiveLearner:
         model_name: str = "birdnet",
         dataset_name: str = "FewShot",
         hidden_dim: Optional[int] = None,
-        learning_rate: float = 0.001,
+        learning_rate: float = 0.0001,
         device: str = "cpu"
     ):
         """
@@ -51,7 +51,13 @@ class ActiveLearner:
         self.device = device
 
         # Load data
+        import sys
+        print("="*50, file=sys.stderr)
+        print("ACTIVE LEARNER INIT CALLED", file=sys.stderr)
+        print("="*50, file=sys.stderr)
+        sys.stderr.flush()
         self.embeddings, self.labels, self.label_to_idx, self.idx_to_label = self._load_data()
+
 
         # Initialize model
         input_dim = self.embeddings.shape[1]
@@ -73,6 +79,10 @@ class ActiveLearner:
         self.unlabeled_indices = list(range(len(self.embeddings)))
         self.training_history = []
 
+        # PCA transformation (fitted once and reused)
+        self.pca = None
+        self.scaler = None
+
         logger.info(f"Initialized ActiveLearner with {len(self.embeddings)} samples and {num_classes} classes")
 
     def _load_data(self) -> Tuple[np.ndarray, np.ndarray, Dict, Dict]:
@@ -86,10 +96,17 @@ class ActiveLearner:
             idx_to_label: Dictionary mapping indices to label names
         """
         # Load annotations
+        import sys
+        print(f"Loading annotations from: {self.annotations_path}", file=sys.stderr)
+        sys.stderr.flush()
         df = pd.read_csv(self.annotations_path)
+        print(f"Loaded {len(df)} annotations", file=sys.stderr)
+        sys.stderr.flush()
 
         # Extract unique labels and create mappings
+        # Convert all labels to strings to ensure JSON serialization compatibility
         unique_labels = sorted(df['label:default_classifier'].unique())
+        unique_labels = [str(label) for label in unique_labels]
         label_to_idx = {label: idx for idx, label in enumerate(unique_labels)}
         idx_to_label = {idx: label for label, idx in label_to_idx.items()}
 
@@ -100,7 +117,7 @@ class ActiveLearner:
         # Map audio filenames to embeddings
         for _, row in df.iterrows():
             audio_filename = row['audiofilename']
-            label = row['label:default_classifier']
+            label = str(row['label:default_classifier'])
 
             # Construct embedding filename
             # Convert audio\FewShot\CHE_01_20190101_163410.wav -> CHE_01_20190101_163410_birdnet.npy
@@ -178,27 +195,25 @@ class ActiveLearner:
 
         self.model.train()
 
-        # Prepare labeled data
-        X_train = torch.from_numpy(self.embeddings[self.labeled_indices]).to(self.device)
-        y_train = torch.from_numpy(self.labels[self.labeled_indices]).to(self.device)
+        # Prepare labeled data (keep original for evaluation)
+        X_train_orig = torch.from_numpy(self.embeddings[self.labeled_indices]).to(self.device)
+        y_train_orig = torch.from_numpy(self.labels[self.labeled_indices]).to(self.device)
 
         # Training loop
         total_loss = 0.0
-        correct = 0
-        total = 0
 
         for epoch in range(epochs):
-            # Shuffle data
-            perm = torch.randperm(len(X_train))
-            X_train = X_train[perm]
-            y_train = y_train[perm]
+            # Shuffle data for this epoch
+            perm = torch.randperm(len(X_train_orig))
+            X_train_shuffled = X_train_orig[perm]
+            y_train_shuffled = y_train_orig[perm]
 
             epoch_loss = 0.0
 
             # Mini-batch training
-            for i in range(0, len(X_train), batch_size):
-                batch_X = X_train[i:i + batch_size]
-                batch_y = y_train[i:i + batch_size]
+            for i in range(0, len(X_train_orig), batch_size):
+                batch_X = X_train_shuffled[i:i + batch_size]
+                batch_y = y_train_shuffled[i:i + batch_size]
 
                 # Forward pass
                 self.optimizer.zero_grad()
@@ -213,16 +228,23 @@ class ActiveLearner:
 
             total_loss = epoch_loss
 
-        # Calculate final accuracy on labeled set
+        # Calculate final accuracy on labeled set (using ORIGINAL unshuffled order)
         self.model.eval()
         with torch.no_grad():
-            outputs = self.model(X_train)
+            outputs = self.model(torch.from_numpy(self.embeddings).to(self.device))
+            
             _, predicted = torch.max(outputs, 1)
-            correct = (predicted == y_train).sum().item()
-            total = len(y_train)
+            # print("Model predicted", predicted.shape, predicted)
 
+            labels = torch.from_numpy(self.labels).to(self.device)
+            # print("label", labels.shape, labels)
+
+            correct = (predicted == labels).sum().item()
+            total = len(labels)
+
+        print(correct, total)
         accuracy = correct / total if total > 0 else 0.0
-        avg_loss = total_loss / max(1, len(X_train) // batch_size)
+        avg_loss = total_loss / max(1, len(X_train_orig) // batch_size)
 
         metrics = {
             "loss": avg_loss,
@@ -246,21 +268,27 @@ class ActiveLearner:
         Returns:
             Array of shape (n_samples, 3) with 3D coordinates
         """
+        from sklearn.decomposition import PCA
+        from sklearn.preprocessing import StandardScaler
+
         self.model.eval()
 
         with torch.no_grad():
             X = torch.from_numpy(self.embeddings).to(self.device)
             embeddings = self.model.get_embedding(X).cpu().numpy()
 
-        # Reduce to 3D using PCA
-        from sklearn.decomposition import PCA
-        from sklearn.preprocessing import StandardScaler
+        # Fit PCA transformation on first call, then reuse it
+        if self.pca is None or self.scaler is None:
+            logger.info("Fitting PCA transformation (will be reused for all subsequent calls)")
+            self.scaler = StandardScaler()
+            embeddings_scaled = self.scaler.fit_transform(embeddings)
 
-        scaler = StandardScaler()
-        embeddings_scaled = scaler.fit_transform(embeddings)
-
-        pca = PCA(n_components=3)
-        embeddings_3d = pca.fit_transform(embeddings_scaled)
+            self.pca = PCA(n_components=3)
+            embeddings_3d = self.pca.fit_transform(embeddings_scaled)
+        else:
+            # Reuse the fitted transformation
+            embeddings_scaled = self.scaler.transform(embeddings)
+            embeddings_3d = self.pca.transform(embeddings_scaled)
 
         return embeddings_3d
 
@@ -272,11 +300,11 @@ class ActiveLearner:
             Dictionary with current state
         """
         return {
-            "n_labeled": len(self.labeled_indices),
-            "n_unlabeled": len(self.unlabeled_indices),
-            "labeled_indices": self.labeled_indices,
-            "unlabeled_indices": self.unlabeled_indices,
+            "n_labeled": int(len(self.labeled_indices)),
+            "n_unlabeled": int(len(self.unlabeled_indices)),
+            "labeled_indices": [int(idx) for idx in self.labeled_indices],
+            "unlabeled_indices": [int(idx) for idx in self.unlabeled_indices],
             "training_history": self.training_history,
-            "num_classes": len(self.label_to_idx),
-            "labels": list(self.label_to_idx.keys())
+            "num_classes": int(len(self.label_to_idx)),
+            "labels": list(self.label_to_idx.keys())  # Already strings from initialization
         }
