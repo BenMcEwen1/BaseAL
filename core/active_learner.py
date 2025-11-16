@@ -359,7 +359,7 @@ class ActiveLearner:
         self.idx = None
 
         self.umap_config = {
-                "n_neighbors": 15,
+                "n_neighbors": 30,
                 "min_dist": 0.1,
                 "n_components": 3,
                 "n_epochs": 200,
@@ -657,9 +657,9 @@ class ActiveLearner:
                 logger.info(f"UMAP fit completed in {end - start:.1f}s")
         else:
             # Transform using fitted transformation
-            embeddings_scaled = self.scaler.transform(embeddings)
+            embeddings_scaled = self.scaler.fit_transform(embeddings)
             start = time.time()
-            embeddings_3d = self.reducer.transform(embeddings_scaled)
+            embeddings_3d = self.reducer.fit_transform(embeddings_scaled)
             end = time.time()
             logger.info(f"Transformed {len(embeddings)} samples using {self.dim_reduction_method} in {end - start:.3f}s")
 

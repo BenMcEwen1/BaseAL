@@ -41,7 +41,7 @@ export default function Axes({ opacity = 1 }) {
                     width: '1.5px',
                     height: '150px',
                     background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.1))',
-                    transform: 'rotate(-60deg)',
+                    transform: 'rotate(-120deg)',
                     boxShadow: '0 0 4px rgba(255, 255, 255, 0.3)'
                 }} />
 
@@ -51,7 +51,7 @@ export default function Axes({ opacity = 1 }) {
                     width: '1.5px',
                     height: '150px',
                     background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.6), rgba(74, 226, 144, 0.1))',
-                    transform: 'rotate(60deg)',
+                    transform: 'rotate(120deg)',
                     boxShadow: '0 0 4px rgba(255, 255, 255, 0.3)'
                 }} />
             </div>
