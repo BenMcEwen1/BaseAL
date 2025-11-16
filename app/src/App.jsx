@@ -1,541 +1,78 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import PointCluster from './components/PointCluster';
-import Analytics from './components/Analytics'
-import {
-  fetchModels,
-  fetchDatasets,
-  fetchEmbeddingSteps,
-  convertStepsToPointFormat,
-  initializeActiveLearning,
-  sampleNextBatch,
-  trainModel,
-  getActiveLearningEmbeddings
-} from './utils/apiClient';
+import React, { useRef, useState, useEffect } from 'react';
+import Home from './components/Home';
+import ALTool from './components/ALTool';
+import Axes from './components/Axes'
 
 export default function App() {
-  const [step, setStep] = useState(0);
-  const [embeddingSteps, setEmbeddingSteps] = useState([]);
-  const [models, setModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState(null);
-  const [datasets, setDatasets] = useState([]);
-  const [selectedDataset, setSelectedDataset] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [useAPI, setUseAPI] = useState(true);
-  const [useActiveLearning, setUseActiveLearning] = useState(true);
-  const [alState, setAlState] = useState(null);
-  const [trainingMetrics, setTrainingMetrics] = useState(null);
-  const [n_samples, setSamples] = useState(10);
-  const [labels, setLabels] = useState(null);
-  const [labelNames, setLabelNames] = useState(null);
-  const [labeledMask, setLabeledMask] = useState(null);
-  const [activeTab, setActiveTab] = useState('controls'); // 'controls' or 'analytics'
-  const [isTrainingAll, setIsTrainingAll] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const cancelTrainingRef = useRef(false);
+  const alToolRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const [axesOpacity, setAxesOpacity] = useState(0);
 
-  // Load models on component mount
+  const handleGetStarted = () => {
+    alToolRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const modelsList = await fetchModels();
-        setModels(modelsList);
-        if (modelsList.length > 0) {
-          setSelectedModel(modelsList[0].name);
+    const handleScroll = () => {
+      if (scrollContainerRef.current) {
+        const scrollTop = scrollContainerRef.current.scrollTop;
+        const windowHeight = window.innerHeight;
+
+        // Calculate opacity: 0 at top, 1 when fully scrolled to second section
+        // Fade starts at 20% scroll and completes at 80% scroll
+        const fadeStart = windowHeight * 0.2;
+        const fadeEnd = windowHeight * 0.8;
+
+        let opacity = 0;
+        if (scrollTop <= fadeStart) {
+          opacity = 0;
+        } else if (scrollTop >= fadeEnd) {
+          opacity = 1;
+        } else {
+          opacity = (scrollTop - fadeStart) / (fadeEnd - fadeStart);
         }
-      } catch (err) {
-        console.error('Failed to load models:', err);
+
+        setAxesOpacity(opacity);
       }
     };
 
-    if (useAPI) {
-      loadModels();
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      // Initial check
+      handleScroll();
     }
-  }, [useAPI]);
 
-  // Load datasets when model changes
-  useEffect(() => {
-    const loadDatasets = async () => {
-      if (!selectedModel) return;
-
-      try {
-        const datasetsList = await fetchDatasets(selectedModel);
-        setDatasets(datasetsList);
-        if (datasetsList.length > 0) {
-          setSelectedDataset(datasetsList[0].name);
-        }
-      } catch (err) {
-        console.error('Failed to load datasets:', err);
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', handleScroll);
       }
     };
+  }, []);
 
-    if (useAPI && selectedModel) {
-      loadDatasets();
-    }
-  }, [selectedModel, useAPI]);
-
-  // Load embeddings from API
-  const loadEmbeddingsFromAPI = async () => {
-    if (!selectedModel || !selectedDataset) {
-      setError('Please select a model and dataset');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const stepsData = await fetchEmbeddingSteps(selectedModel, selectedDataset, 4);
-      const formattedSteps = convertStepsToPointFormat(stepsData);
-      setEmbeddingSteps(formattedSteps);
-      setStep(0);
-    } catch (err) {
-      setError(`Failed to load embeddings: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Active Learning functions
-  const initializeAL = async () => {
-    if (!selectedModel || !selectedDataset) {
-      setError('Please select a model and dataset');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await initializeActiveLearning(selectedModel, selectedDataset);
-      setAlState(result.state);
-      setTrainingMetrics(null);
-
-      // Load initial embeddings
-      await updateEmbeddings();
-    } catch (err) {
-      setError(`Failed to initialize: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const sampleAndTrain = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Sample next batch
-      const sampleResult = await sampleNextBatch(n_samples);
-      setAlState(sampleResult.state);
-
-      // Train model
-      const trainResult = await trainModel(10, 8);
-      setAlState(trainResult.state);
-      setTrainingMetrics(trainResult.metrics);
-
-      // Update embeddings visualization
-      await updateEmbeddings();
-    } catch (err) {
-      setError(`Failed to sample and train: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const trainAll = async () => {
-    setLoading(true);
-    setIsTrainingAll(true);
-    setIsCancelling(false);
-    setError(null);
-    cancelTrainingRef.current = false;
-
-    try {
-      let currentState = alState;
-
-      while (currentState.n_unlabeled > 0) {
-        // Check if cancellation was requested
-        if (cancelTrainingRef.current) {
-          console.log('Training cancelled by user');
-          break;
-        }
-
-        console.log(`Unlabeled samples remaining: ${currentState.n_unlabeled}`);
-
-        // Sample next batch
-        const sampleResult = await sampleNextBatch(n_samples);
-        currentState = sampleResult.state;
-        setAlState(currentState);
-
-        // Train model
-        // for (let step = 0; step < 5; step++) {
-        const trainResult = await trainModel(10, 8);
-        currentState = trainResult.state;
-        setAlState(currentState);
-        setTrainingMetrics(trainResult.metrics);
-
-        // Update embeddings visualization
-        await updateEmbeddings();
-        // }
-      }
-
-      if (!cancelTrainingRef.current) {
-        console.log('Training completed - all samples labeled');
-      }
-    } catch (err) {
-      setError(`Failed to sample and train: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-      setIsTrainingAll(false);
-      setIsCancelling(false);
-      cancelTrainingRef.current = false;
-    }
-  };
-
-  const cancelTraining = () => {
-    cancelTrainingRef.current = true;
-    setIsCancelling(true);
-  };
-
-  const updateEmbeddings = async () => {
-    try {
-      const data = await getActiveLearningEmbeddings();
-      // Convert to point format (single step)
-      setEmbeddingSteps([data.coordinates]);
-      setLabels(data.labels);
-      setLabelNames(data.label_names);
-      setLabeledMask(data.labeled_mask);
-      setStep(0);
-    } catch (err) {
-      console.error('Failed to update embeddings:', err);
-    }
-  };
-  
   return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      overflow: 'hidden',
-      background: '#0a0a0a',
-      display: 'flex'
-    }}>
-      {/* Left Panel - 1/3 width */}
-      <div style={{
-        width: '33.33%',
+    <div
+      ref={scrollContainerRef}
+      className="hide-scrollbar"
+      style={{
+        width: '100vw',
         height: '100vh',
-        padding: '15px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        overflowX: 'hidden'
-      }}>
-        {/* Tab Navigation */}
-        <div style={{
-          display: 'flex',
-          padding: '15px 20px',
-          // borderBottom: '1px solid #444',
-          background: '#0a0a0a'
-        }}>
-          <button
-            onClick={() => setActiveTab('controls')}
-            style={{
-              flex: 1,
-              padding: '16px',
-              background: activeTab === 'controls' ? '#2a2a2a' : 'transparent',
-              color: 'white',
-              border: 'none',
-              borderBottom: activeTab === 'controls' ? '2px solid #4ae290' : '2px solid transparent',
-              cursor: 'pointer',
-              fontSize: '16px',
-              fontWeight: 'bold'
-            }}
-          >
-            Controls
-          </button>
-          <button
-            onClick={() => setActiveTab('analytics')}
-            style={{
-              flex: 1,
-              padding: '16px',
-              background: activeTab === 'analytics' ? '#2a2a2a' : 'transparent',
-              color: 'white',
-              border: 'none',
-              borderBottom: activeTab === 'analytics' ? '2px solid #4ae290' : '2px solid transparent',
-              cursor: 'pointer',
-              fontSize: '16px',
-              fontWeight: 'bold'
-            }}
-          >
-            Analytics
-          </button>
-        </div>
+        overflow: 'auto',
+        scrollSnapType: 'y mandatory'
+      }}
+    >
 
-        {/* Tab Content */}
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px'
-        }}>
-          {activeTab === 'controls' && (
-            <>
-              {/* Model and Dataset Selection */}
-              {useAPI && (
-                <div style={{
-                  background: '#2a2a2a',
-                  padding: '16px 20px',
-                  borderRadius: '8px',
-                  color: 'white'
-                }}>
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                      Model:
-                    </label>
-                    <select
-                      value={selectedModel || ''}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        borderRadius: '4px',
-                        border: '1px solid #444',
-                        background: '#1a1a1a',
-                        color: 'white',
-                        fontSize: '14px'
-                      }}
-                    >
-                      {models.map(model => (
-                        <option key={model.name} value={model.name}>
-                          {model.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+      <Axes opacity={axesOpacity} />
 
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                      Dataset:
-                    </label>
-                    <select
-                      value={selectedDataset || ''}
-                      onChange={(e) => setSelectedDataset(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        borderRadius: '4px',
-                        border: '1px solid #444',
-                        background: '#1a1a1a',
-                        color: 'white',
-                        fontSize: '14px'
-                      }}
-                    >
-                      {datasets.map(dataset => (
-                        <option key={dataset.name} value={dataset.name}>
-                          {dataset.name} ({dataset.file_count} files)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                      Sample number (n):
-                    </label>
-                    <input
-                      type='number'
-                      value={n_samples}
-                      onChange={(e) => setSamples(e.target.value)}
-                      style={{
-                        // width: '100%',
-                        padding: '10px',
-                        borderRadius: '4px',
-                        border: '1px solid #444',
-                        background: '#1a1a1a',
-                        color: 'white',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-
-                  <button
-                    onClick={useActiveLearning ? initializeAL : loadEmbeddingsFromAPI}
-                    disabled={loading || !selectedModel || !selectedDataset}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      fontSize: '14px',
-                      background: loading ? '#666' : (useActiveLearning ? '#e24a90' : '#4a90e2'),
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    {loading ? 'Loading...' : (useActiveLearning ? 'Initialize Active Learning' : 'Load Embeddings')}
-                  </button>
-
-                  {error && (
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '10px',
-                      background: '#ff4444',
-                      borderRadius: '4px',
-                      fontSize: '12px'
-                    }}>
-                      {error}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Active Learning Controls */}
-              {useActiveLearning && alState && (
-                <div style={{
-                  background: '#2a2a2a',
-                  padding: '16px 20px',
-                  borderRadius: '8px',
-                  color: 'white'
-                }}>
-                  <div style={{ marginBottom: '16px', fontSize: '14px' }}>
-                    <div style={{ marginBottom: '8px', fontSize: '16px', fontWeight: 'bold' }}>
-                      Training Status
-                    </div>
-                    <div style={{ marginBottom: '4px' }}>
-                      Labeled: {alState.n_labeled} / {alState.n_labeled + alState.n_unlabeled}
-                    </div>
-                    {trainingMetrics && (
-                      <>
-                        <div style={{ marginBottom: '4px' }}>
-                          Accuracy: {(trainingMetrics.accuracy * 100).toFixed(2)}%
-                        </div>
-                        <div>Loss: {trainingMetrics.loss.toFixed(4)}</div>
-                      </>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={sampleAndTrain}
-                    disabled={loading || alState.n_unlabeled === 0}
-                    style={{
-                      width: '100%',
-                      padding: '12px 20px',
-                      fontSize: '16px',
-                      background: loading || alState.n_unlabeled === 0 ? '#666' : '#4ae290',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: loading || alState.n_unlabeled === 0 ? 'not-allowed' : 'pointer',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    {loading ? 'Training...' : `Sample & Train (${n_samples} samples)`}
-                  </button>
-
-                  {/* Run All / Cancel button */}
-                  {isTrainingAll ? (
-                    <button
-                      onClick={cancelTraining}
-                      disabled={isCancelling}
-                      style={{
-                        width: '100%',
-                        padding: '12px 20px',
-                        marginTop: "10px",
-                        fontSize: '16px',
-                        background: isCancelling ? '#999' : '#e24a4a',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: isCancelling ? 'not-allowed' : 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      {isCancelling ? 'Wrapping up current cycle...' : 'Cancel Training'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={trainAll}
-                      disabled={loading || alState.n_unlabeled === 0}
-                      style={{
-                        width: '100%',
-                        padding: '12px 20px',
-                        marginTop: "10px",
-                        fontSize: '16px',
-                        background: loading || alState.n_unlabeled === 0 ? '#666' : '#4ae290',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: loading || alState.n_unlabeled === 0 ? 'not-allowed' : 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      Run all
-                    </button>
-                  )}
-
-
-                </div>
-              )}
-            </>
-          )}
-
-          {activeTab === 'analytics' && (
-            <>
-              {/* Analytics Charts */}
-              {alState && alState.training_history ? (
-                <>
-                  <Analytics data={alState.training_history} />
-                  {/* Placeholder for additional charts */}
-                  <Analytics data={alState.training_history} />
-                </>
-              ) : (
-                <div style={{
-                  background: '#2a2a2a',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  color: 'white',
-                  textAlign: 'center',
-                  fontSize: '14px'
-                }}>
-                  No analytics data available yet. Start training to see charts.
-                </div>
-              )}
-            </>
-          )}
-        </div>
+      {/* Home Page Section */}
+      <div style={{ scrollSnapAlign: 'start' }}>
+        <Home onGetStarted={handleGetStarted} />
+        
       </div>
 
-      {/* Right Canvas - 2/3 width */}
-      <div style={{ width: '66.67%', height: '100vh' }}>
-        <Canvas camera={{ position: [5, 5, 5], fov: 20 }}>
-          <ambientLight intensity={0.8} />
-          <pointLight position={[10, 10, 10]} intensity={0.5} />
-          <pointLight position={[-10, -10, -10]} intensity={0.3} />
-          <PointCluster
-            embeddingData={embeddingSteps}
-            currentStep={step}
-            labels={labels}
-            labelNames={labelNames}
-            labeledMask={labeledMask}
-          />
-          <OrbitControls
-            enableDamping
-            dampingFactor={0.04}
-            autoRotate={true}
-            autoRotateSpeed={0.1}
-            target={[0, 0, 0]}
-            minDistance={3}
-            maxDistance={20}
-          />
-        </Canvas>
+      {/* AL Tool Section */}
+      <div ref={alToolRef} style={{ scrollSnapAlign: 'start' }}>
+        <ALTool />
       </div>
     </div>
   );

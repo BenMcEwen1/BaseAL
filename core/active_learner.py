@@ -28,7 +28,7 @@ os.environ['NUMBA_DISABLE_PERFORMANCE_WARNINGS'] = '1'
 # Set numba logging to WARNING to avoid verbose compilation details
 logging.getLogger('numba').setLevel(logging.WARNING)
 
-from .model import EmbeddingClassifier
+from .utils.model import EmbeddingClassifier
 
 logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
