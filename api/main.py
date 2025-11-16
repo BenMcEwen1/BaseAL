@@ -373,7 +373,7 @@ def initialize_active_learner(model_name: str = "2025-11-13_21-42___birdnet-test
             annotations_path=annotations_path,
             model_name=base_model_name,
             dataset_name=dataset_name,
-            hidden_dim=127,
+            hidden_dim=1024,
             learning_rate=0.001,
             device="cpu"
         )
@@ -470,11 +470,16 @@ def get_active_learning_embeddings():
         # Get 3D embeddings from model
         embeddings_3d = active_learner.get_embeddings_3d()
 
-        # Get labels
-        labels = active_learner.labels.tolist()
-
-        # Get labeled/unlabeled status
-        labeled_mask = [i in active_learner.labeled_indices for i in range(len(embeddings_3d))]
+        # Get labels - apply the same subsampling as embeddings
+        if active_learner.idx is not None:
+            # Use the same subsampling indices
+            labels = active_learner.labels[active_learner.idx].tolist()
+            # Get labeled/unlabeled status for subsampled indices
+            labeled_mask = [i in active_learner.labeled_indices for i in active_learner.idx]
+        else:
+            # No subsampling applied
+            labels = active_learner.labels.tolist()
+            labeled_mask = [i in active_learner.labeled_indices for i in range(len(embeddings_3d))]
 
         return {
             "coordinates": embeddings_3d.tolist(),

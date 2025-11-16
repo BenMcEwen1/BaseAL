@@ -12,6 +12,13 @@ import logging
 import warnings
 import os
 import umap
+import time
+import yaml
+import json
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 # Suppress numba warnings and debug output
 warnings.filterwarnings('ignore', module='numba')
@@ -35,7 +42,7 @@ def _prewarm_umap_module():
     """
     try:
         logger.info("Pre-warming UMAP (triggering numba JIT compilation)...")
-
+        start = time.time()
         # Create small dummy dataset
         dummy_data = np.random.randn(100, 10).astype(np.float32)
 
@@ -48,8 +55,9 @@ def _prewarm_umap_module():
             verbose=False
         )
         _ = dummy_reducer.fit_transform(dummy_data)
+        end = time.time()
 
-        logger.info("UMAP pre-warming complete")
+        logger.info(f"UMAP pre-warming completed in {end - start}")
     except Exception as e:
         logger.warning(f"UMAP pre-warming failed (non-critical): {e}")
 
@@ -57,6 +65,260 @@ def _prewarm_umap_module():
 # Execute pre-warming immediately at module import
 _prewarm_umap_module()
 
+
+class Manager:
+    """
+    Manages multiple parallel Active Learning experiments
+    """
+
+    def __init__(self, config_path: Path):
+        """
+        Initialize Manager with experiments from config file
+
+        Args:
+            config_path: Path to YAML configuration file
+        """
+        self.config_path = Path(config_path)
+        self.configs = self._load_configs(self.config_path)
+        self.experiments = []
+        self.experiment_names = []
+        self.__initialize_experiments()
+        logger.info(f"Manager initialized with {len(self.experiments)} experiments")
+
+    def _load_configs(self, path: Path) -> List[Dict]:
+        """
+        Load experiment configurations from YAML file
+
+        Args:
+            path: Path to YAML config file
+
+        Returns:
+            List of configuration dictionaries
+        """
+        with open(path, 'r') as f:
+            config_data = yaml.safe_load(f)
+
+        if 'experiments' not in config_data:
+            raise ValueError("Config file must contain 'experiments' key")
+
+        experiments = config_data['experiments']
+
+        # Convert string paths to Path objects
+        for exp in experiments:
+            if 'embeddings_dir' in exp:
+                exp['embeddings_dir'] = Path(exp['embeddings_dir'])
+            if 'annotations_path' in exp:
+                exp['annotations_path'] = Path(exp['annotations_path'])
+
+        logger.info(f"Loaded {len(experiments)} experiment configurations from {path}")
+        return experiments
+
+    def __initialize_experiments(self):
+        """Initialize ActiveLearner instances for each experiment config"""
+        for i, config in enumerate(self.configs):
+            # Extract experiment name if provided, otherwise use index
+            exp_name = config.pop('name', f'experiment_{i}')
+            self.experiment_names.append(exp_name)
+
+            logger.info(f"Initializing experiment: {exp_name}")
+            learner = ActiveLearner(**config)
+            self.experiments.append(learner)
+
+    def run(self,
+            n_samples: int = 5,
+            epochs: int = 5,
+            batch_size: int = 8,
+            parallel: bool = False) -> Dict[str, Dict]:
+        """
+        Run one complete AL cycle for all experiments
+
+        Args:
+            n_samples: Number of samples to select per experiment
+            epochs: Number of training epochs
+            batch_size: Training batch size
+            parallel: Whether to run experiments in parallel
+
+        Returns:
+            Dictionary mapping experiment names to their training metrics
+        """
+        logger.info(f"Starting AL cycle: {n_samples} samples, {epochs} epochs, parallel={parallel}")
+
+        results = {}
+
+        if parallel:
+            # Run experiments in parallel using ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=len(self.experiments)) as executor:
+                future_to_name = {
+                    executor.submit(self._run_single_experiment, learner, n_samples, epochs, batch_size): name
+                    for learner, name in zip(self.experiments, self.experiment_names)
+                }
+
+                for future in as_completed(future_to_name):
+                    exp_name = future_to_name[future]
+                    try:
+                        metrics = future.result()
+                        results[exp_name] = metrics
+                        logger.info(f"Experiment '{exp_name}' completed: {metrics}")
+                    except Exception as e:
+                        logger.error(f"Experiment '{exp_name}' failed: {e}")
+                        results[exp_name] = {"error": str(e)}
+        else:
+            # Run experiments sequentially
+            for learner, exp_name in zip(self.experiments, self.experiment_names):
+                try:
+                    metrics = self._run_single_experiment(learner, n_samples, epochs, batch_size)
+                    results[exp_name] = metrics
+                    logger.info(f"Experiment '{exp_name}' completed: {metrics}")
+                except Exception as e:
+                    logger.error(f"Experiment '{exp_name}' failed: {e}")
+                    results[exp_name] = {"error": str(e)}
+
+        return results
+
+    def _run_single_experiment(self,
+                               learner: 'ActiveLearner',
+                               n_samples: int,
+                               epochs: int,
+                               batch_size: int) -> Dict:
+        """
+        Run one AL cycle for a single experiment
+
+        Args:
+            learner: ActiveLearner instance
+            n_samples: Number of samples to select
+            epochs: Number of training epochs
+            batch_size: Training batch size
+
+        Returns:
+            Training metrics dictionary
+        """
+        # Sample new data points
+        selected_indices = learner.sample_random(n_samples)
+
+        if len(selected_indices) > 0:
+            # Add selected samples to labeled set
+            learner.add_samples(selected_indices)
+
+            # Train on updated labeled set
+            metrics = learner.train_step(epochs=epochs, batch_size=batch_size)
+        else:
+            # No samples to add, just return current state
+            metrics = {
+                "loss": 0.0,
+                "accuracy": 0.0,
+                "n_labeled": len(learner.labeled_indices),
+                "n_unlabeled": len(learner.unlabeled_indices)
+            }
+
+        return metrics
+
+    def add(self, new_config: Dict, name: Optional[str] = None):
+        """
+        Add a new experiment dynamically
+
+        Args:
+            new_config: Configuration dictionary for new experiment
+            name: Optional name for the experiment
+        """
+        # Convert string paths to Path objects
+        if 'embeddings_dir' in new_config:
+            new_config['embeddings_dir'] = Path(new_config['embeddings_dir'])
+        if 'annotations_path' in new_config:
+            new_config['annotations_path'] = Path(new_config['annotations_path'])
+
+        exp_name = name or f'experiment_{len(self.experiments)}'
+        self.experiment_names.append(exp_name)
+
+        logger.info(f"Adding new experiment: {exp_name}")
+        learner = ActiveLearner(**new_config)
+        self.experiments.append(learner)
+
+    def save(self, output_dir: Optional[Path] = None):
+        """
+        Save training histories and experiment states to JSON files
+
+        Args:
+            output_dir: Directory to save results (defaults to './results')
+        """
+        if output_dir is None:
+            output_dir = Path('./results')
+
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+        # Save each experiment's history
+        for learner, exp_name in zip(self.experiments, self.experiment_names):
+            # Create experiment-specific results
+            results = {
+                'experiment_name': exp_name,
+                'timestamp': timestamp,
+                'config': {
+                    'model_name': learner.model_name,
+                    'dataset_name': learner.dataset_name,
+                    'learning_rate': learner.learning_rate,
+                    'device': learner.device,
+                },
+                'final_state': learner.get_state(),
+                'training_history': learner.training_history
+            }
+
+            # Save to JSON file
+            output_file = output_dir / f'{exp_name}_{timestamp}.json'
+            with open(output_file, 'w') as f:
+                json.dump(results, f, indent=2)
+
+            logger.info(f"Saved results for '{exp_name}' to {output_file}")
+
+        # Save combined summary
+        summary = {
+            'timestamp': timestamp,
+            'num_experiments': len(self.experiments),
+            'experiment_names': self.experiment_names,
+            'experiments': [
+                {
+                    'name': name,
+                    'n_labeled': len(learner.labeled_indices),
+                    'n_unlabeled': len(learner.unlabeled_indices),
+                    'final_accuracy': learner.training_history[-1]['accuracy'] if learner.training_history else 0.0,
+                    'num_iterations': len(learner.training_history)
+                }
+                for learner, name in zip(self.experiments, self.experiment_names)
+            ]
+        }
+
+        summary_file = output_dir / f'summary_{timestamp}.json'
+        with open(summary_file, 'w') as f:
+            json.dump(summary, f, indent=2)
+
+        logger.info(f"Saved experiment summary to {summary_file}")
+
+    def get_summary(self) -> Dict:
+        """
+        Get current status of all experiments
+
+        Returns:
+            Dictionary with summary information for all experiments
+        """
+        summary = {
+            'num_experiments': len(self.experiments),
+            'experiments': []
+        }
+
+        for learner, name in zip(self.experiments, self.experiment_names):
+            exp_summary = {
+                'name': name,
+                'n_labeled': len(learner.labeled_indices),
+                'n_unlabeled': len(learner.unlabeled_indices),
+                'num_iterations': len(learner.training_history),
+                'current_accuracy': learner.training_history[-1]['accuracy'] if learner.training_history else 0.0,
+                'learning_rate': learner.learning_rate,
+                'model_name': learner.model_name
+            }
+            summary['experiments'].append(exp_summary)
+
+        return summary
 
 class ActiveLearner:
     """
@@ -93,16 +355,16 @@ class ActiveLearner:
         self.device = device
 
         self.dim_reduction_method = "UMAP"
+        self.umap_transform_batch_size = 500
+        self.idx = None
 
         self.umap_config = {
-                "n_neighbors": 10,
+                "n_neighbors": 15,
                 "min_dist": 0.1,
                 "n_components": 3,
-                "metric": "euclidean",
-                "random_state": 42,
-                "low_memory": True,
-                "n_epochs": 100,
+                "n_epochs": 200,
                 "init": "spectral",
+                "n_jobs": 1
             }
 
         # Load data
@@ -134,8 +396,8 @@ class ActiveLearner:
         self.unlabeled_indices = list(range(len(self.embeddings)))
         self.training_history = []
 
-        # PCA transformation (fitted once and reused)
-        self.pca = None
+        # Dimensionality reduction (fitted once and reused)
+        self.reducer = None
         self.scaler = None
 
         logger.info(f"Initialized ActiveLearner with {len(self.embeddings)} samples and {num_classes} classes")
@@ -314,8 +576,45 @@ class ActiveLearner:
         logger.info(f"Training step complete: Loss={avg_loss:.4f}, Accuracy={accuracy:.4f}")
 
         return metrics
+    
+    def _transform_batched(self, embeddings_scaled: np.ndarray) -> np.ndarray:
+        """
+        Transform embeddings in batches to improve performance for large datasets.
+        Args:
+            embeddings_scaled: Scaled embeddings to transform
 
-    def get_embeddings_3d(self, reduction_method: str = "pca") -> np.ndarray:
+        Returns:
+            Transformed 3D embeddings
+        """
+        n_samples = len(embeddings_scaled)
+
+        # If dataset is small, no need for batching
+        if n_samples <= self.umap_transform_batch_size:
+            return self.reducer.transform(embeddings_scaled)
+
+        # Split into batches and transform
+        logger.info(f"Transforming {n_samples} samples in batches of {self.umap_transform_batch_size}")
+
+        batches = []
+        for start_idx in range(0, n_samples, self.umap_transform_batch_size):
+            start = time.time()
+            end_idx = min(start_idx + self.umap_transform_batch_size, n_samples)
+            batch = embeddings_scaled[start_idx:end_idx]
+
+            # Transform this batch
+            batch_transformed = self.reducer.transform(batch)
+            batches.append(batch_transformed)
+            end = time.time()
+
+            logger.info(f"Transformed batch {start_idx//self.umap_transform_batch_size + 1}/{(n_samples-1)//self.umap_transform_batch_size + 1} ({end_idx}/{n_samples} samples in {end - start}s)")
+
+        # Combine all batches
+        embeddings_3d = np.vstack(batches)
+        logger.info(f"Batch transformation complete: {embeddings_3d.shape}")
+
+        return embeddings_3d
+
+    def get_embeddings_3d(self, reduction_method: str = "pca", max_embeddings: int = 1000) -> np.ndarray:
         """
         Get 3D embeddings from the intermediate layer
 
@@ -325,8 +624,6 @@ class ActiveLearner:
         Returns:
             Array of shape (n_samples, 3) with 3D coordinates
         """
-        from sklearn.decomposition import PCA
-        from sklearn.preprocessing import StandardScaler
 
         self.model.eval()
 
@@ -334,31 +631,40 @@ class ActiveLearner:
             X = torch.from_numpy(self.embeddings).to(self.device)
             embeddings = self.model.get_embedding(X).cpu().numpy()
 
-        # Fit PCA transformation on first call, then reuse it
-        if self.pca is None or self.scaler is None:
-            logger.info("Fitting PCA transformation (will be reused for all subsequent calls)")
+        # Subsampling and plot embeddings
+        if embeddings.shape[0] > max_embeddings:
+            if self.idx is None:
+                print("Generate subset...")
+                self.idx = np.random.choice(embeddings.shape[0], size=max_embeddings, replace=False)
+            
+            embeddings = embeddings[self.idx]
+            print(f"Embeddings subsampled, new shape {embeddings.shape}")
+
+        # Fit transformation on first call, then reuse
+        if self.reducer is None or self.scaler is None:
+            logger.info(f"Fitting {self.dim_reduction_method} (will be reused for subsequent calls)")
             self.scaler = StandardScaler()
             embeddings_scaled = self.scaler.fit_transform(embeddings)
 
             if self.dim_reduction_method == "PCA":
-                self.pca = PCA(n_components=3)
-                embeddings_3d = self.pca.fit_transform(embeddings_scaled)
+                self.reducer = PCA(n_components=3)
+                embeddings_3d = self.reducer.fit_transform(embeddings_scaled)
             elif self.dim_reduction_method == "UMAP":
-                self.pca = umap.UMAP(**self.umap_config)
-                embeddings_3d = self.pca.fit_transform(embeddings_scaled)
+                self.reducer = umap.UMAP(**self.umap_config)
+                start = time.time()
+                embeddings_3d = self.reducer.fit_transform(embeddings_scaled)
+                end = time.time()
+                logger.info(f"UMAP fit completed in {end - start:.1f}s")
         else:
-            # Reuse the fitted transformation
+            # Transform using fitted transformation
             embeddings_scaled = self.scaler.transform(embeddings)
-            print(embeddings_scaled.shape)
-
-            if self.dim_reduction_method == "PCA":
-                embeddings_3d = self.pca.transform(embeddings_scaled)
-            elif self.dim_reduction_method == "UMAP":
-                embeddings_3d = self.pca.transform(embeddings_scaled)
+            start = time.time()
+            embeddings_3d = self.reducer.transform(embeddings_scaled)
+            end = time.time()
+            logger.info(f"Transformed {len(embeddings)} samples using {self.dim_reduction_method} in {end - start:.3f}s")
 
         # Center the embeddings at the origin for better camera rotation
         embeddings_3d = embeddings_3d - embeddings_3d.mean(axis=0)
-
         return embeddings_3d
 
     def get_state(self) -> Dict:
