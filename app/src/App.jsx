@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import Home from './components/Home';
 import ALTool from './components/ALTool';
 import Axes from './components/Axes'
+import AnalyticsV2 from './components/AnalyticsV2';
 
 export default function App() {
   const alToolRef = useRef(null);
@@ -61,7 +62,7 @@ export default function App() {
         scrollSnapType: 'y mandatory'
       }}
     >
-
+      
       <Axes opacity={axesOpacity} />
 
       {/* Home Page Section */}

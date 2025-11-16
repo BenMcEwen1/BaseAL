@@ -191,7 +191,7 @@ export default function Home({ onGetStarted }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '10px',
+        // gap: '10px',
         color: '#666',
         fontSize: '14px',
         animation: 'bounce 2s infinite'

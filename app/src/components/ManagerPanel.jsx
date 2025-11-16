@@ -10,7 +10,7 @@ import {
   getActiveLearningEmbeddings
 } from '../utils/apiClient';
 
-export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect }) {
+export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, onTrainingUpdate }) {
   const [configPath, setConfigPath] = useState('core/config.yml');
   const [experiments, setExperiments] = useState([]);
   const [selectedExperimentIndex, setSelectedExperimentIndex] = useState(null);
@@ -72,7 +72,8 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect })
       const result = await getManagerExperiments();
       setExperiments(result.experiments);
       if (result.experiments.length > 0 && selectedExperimentIndex === null) {
-        setSelectedExperimentIndex(0);
+        // Auto-select the first experiment
+        await handleSelectExperiment(0);
       }
     } catch (err) {
       console.error('Failed to load experiments:', err);
@@ -145,6 +146,10 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect })
       if (selectedExperimentIndex !== null) {
         const data = await getActiveLearningEmbeddings();
         onEmbeddingsUpdate(data);
+        // Update analytics with latest training data
+        if (onTrainingUpdate) {
+          await onTrainingUpdate();
+        }
       }
     } catch (err) {
       setError(`Failed to run manager: ${err.message}`);
@@ -198,6 +203,10 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect })
         if (selectedExperimentIndex !== null) {
           const data = await getActiveLearningEmbeddings();
           onEmbeddingsUpdate(data);
+          // Update analytics with latest training data
+          if (onTrainingUpdate) {
+            await onTrainingUpdate();
+          }
         }
 
         cyclesRun++;

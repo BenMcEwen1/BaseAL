@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import PointCluster from './PointCluster';
 import Analytics from './Analytics';
 import ManagerPanel from './ManagerPanel';
+import AnalyticsV2 from './AnalyticsV2';
 import {
   fetchModels,
   fetchDatasets,
@@ -12,7 +13,8 @@ import {
   initializeActiveLearning,
   sampleNextBatch,
   trainModel,
-  getActiveLearningEmbeddings
+  getActiveLearningEmbeddings,
+  getActiveLearningState
 } from '../utils/apiClient';
 
 export default function ALTool() {
@@ -36,6 +38,7 @@ export default function ALTool() {
   const [isTrainingAll, setIsTrainingAll] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const cancelTrainingRef = useRef(false);
+  const [isAnalyticsPanelOpen, setIsAnalyticsPanelOpen] = useState(false);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -242,7 +245,7 @@ export default function ALTool() {
           >
             Controls
           </button>
-          <button
+          {/* <button
             onClick={() => setActiveTab('analytics')}
             style={{
               flex: 1,
@@ -257,7 +260,7 @@ export default function ALTool() {
             }}
           >
             Analytics
-          </button>
+          </button> */}
           <button
             onClick={() => setActiveTab('manager')}
             style={{
@@ -481,7 +484,7 @@ export default function ALTool() {
             </>
           )}
 
-          {activeTab === 'analytics' && (
+          {/* {activeTab === 'analytics' && (
             <>
               {alState && alState.training_history ? (
                 <>
@@ -501,7 +504,7 @@ export default function ALTool() {
                 </div>
               )}
             </>
-          )}
+          )} */}
 
           {activeTab === 'manager' && (
             <ManagerPanel
@@ -512,16 +515,75 @@ export default function ALTool() {
                 setLabeledMask(data.labeled_mask);
                 setStep(0);
               }}
-              onExperimentSelect={(index) => {
+              onExperimentSelect={async (index) => {
                 console.log(`Selected experiment ${index}`);
+                // Fetch the state of the selected experiment
+                try {
+                  const state = await getActiveLearningState();
+                  setAlState(state);
+                  setTrainingMetrics(state.training_history && state.training_history.length > 0
+                    ? state.training_history[state.training_history.length - 1]
+                    : null);
+                } catch (err) {
+                  console.error('Failed to fetch experiment state:', err);
+                }
+              }}
+              onTrainingUpdate={async () => {
+                // Update state after each training cycle to refresh analytics
+                try {
+                  const state = await getActiveLearningState();
+                  setAlState(state);
+                  setTrainingMetrics(state.training_history && state.training_history.length > 0
+                    ? state.training_history[state.training_history.length - 1]
+                    : null);
+                } catch (err) {
+                  console.error('Failed to fetch updated state:', err);
+                }
               }}
             />
           )}
         </div>
       </div>
 
+
+
       {/* Right Canvas */}
-      <div style={{ width: '66.67%', height: '100vh' }}>
+      <div style={{ width: '66.67%', height: '100vh', position: 'relative' }}>
+        {/* Toggle Analytics Button */}
+        {!isAnalyticsPanelOpen && (
+          <button
+            onClick={() => setIsAnalyticsPanelOpen(true)}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              background: '#4ae290',
+              color: '#0a0a0a',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '12px 24px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              zIndex: 5,
+              transition: 'background 0.2s',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
+            }}
+            onMouseEnter={(e) => e.target.style.background = '#5af3a0'}
+            onMouseLeave={(e) => e.target.style.background = '#4ae290'}
+          >
+            Open Analytics
+          </button>
+        )}
+
+        {/* Analytics Overlay Panel */}
+        <AnalyticsV2
+          isOpen={isAnalyticsPanelOpen}
+          onClose={() => setIsAnalyticsPanelOpen(false)}
+          trainingHistory={alState?.training_history}
+        />
+
+        {/* 3D Canvas */}
         <Canvas camera={{ position: [5, 5, 5], fov: 20 }}>
           <ambientLight intensity={0.8} />
           <pointLight position={[10, 10, 10]} intensity={0.5} />

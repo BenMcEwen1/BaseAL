@@ -1,37 +1,28 @@
-# BaseAL - Active Learning Baseline
-
-<div align="center">
-  <img src="app/public/baseAL_logo.png" alt="BaseAL Logo" width="200"/>
-</div>
+<h1>
+  <img src="app/public/baseAL_logo.png" alt="Logo" width="35" height="30">
+  BaseAL - Active Learning Baseline
+</h1>
 
 ## Overview
 
-BaseAL is an interactive web-based framework for developing and evaluating active learning methods, with a focus on audio and bioacoustic data. The tool provides a complete pipeline for embedding generation, intelligent sampling strategies, 3D visualization, and annotation workflows.
+BaseAL is an framework for developing and evaluating active learning methods. Built upon [Bacpipe](https://github.com/bioacoustic-ai/bacpipe), BaseAL (v1.0.0) focuses on audio and bioacoustic data. 
 
-Built with a modular architecture, BaseAL serves as both a testing ground for researchers exploring active learning methodologies and a practical tool for efficient data annotation campaigns.
+The tool provides a complete pipeline for embedding generation, inteligent sampling strategies, 3D visualization, and annotation workflows.
 
 ### Key Features
 
-- **Interactive 3D Visualization**: Explore high-dimensional embeddings using UMAP reduction with an interactive Three.js interface
-- **Multiple Sampling Strategies**: Compare random sampling, entropy-based selection, and cluster-based diversification
+- **Interactive 3D Visualization**: Explore high-dimensional embeddings using PCA/UMAP reduction with an interactive Three.js interface
+- **Multiple Sampling Strategies**: Compare different sampling and diversification strategies
 - **Model Integration**: Built on [Bacpipe](https://github.com/bioacoustic-ai/bacpipe) for seamless integration with bioacoustic models
-- **Flexible Data Support**: Works with .mp3 and .wav files of any length or sample rate
-- **Real-time Updates**: FastAPI backend with live embedding computation and cluster progression
 - **Experiment Management**: Track and compare different active learning configurations
 
-## Technology Stack
-
-- **Frontend**: React 19 + Vite, Three.js for 3D visualization, Chart.js for metrics
-- **Backend**: FastAPI with PyTorch for model inference
-- **ML Pipeline**: UMAP for dimensionality reduction, scikit-learn for clustering
-- **Audio Processing**: Bacpipe integration for bioacoustic models
+# Setup
 
 ## Prerequisites
 
 - **Python**: 3.8 or higher
 - **Node.js**: 16.x or higher
 - **npm**: 8.x or higher
-- **Git**: For cloning the repository
 
 ## Installation
 
@@ -130,51 +121,6 @@ Refer to the [Bacpipe documentation](https://github.com/bioacoustic-ai/bacpipe) 
 - **Labels**: Optional ground truth labels for baseline performance metrics
 - **Processing**: Audio is automatically segmented and resampled based on model requirements
 
-## Development
-
-### Running in Development Mode
-
-**Backend with auto-reload**:
-```bash
-cd api
-uvicorn main:app --reload
-```
-
-**Frontend with HMR**:
-```bash
-cd app
-npm run dev
-```
-
-### Building for Production
-
-**Frontend build**:
-```bash
-cd app
-npm run build
-```
-
-The optimized static files will be in `app/dist/`.
-
-## Contributing
-
-Contributions are welcome! This framework is designed to be modular and extensible. Areas for contribution include:
-
-- Additional sampling strategies
-- New model integrations
-- Visualization improvements
-- Performance optimizations
-
-## Roadmap
-
-- [ ] Audio playback integration (Wavesurfer.js)
-- [ ] Export annotations in multiple formats
-- [ ] Support for image/vision models
-- [ ] Enhanced experiment comparison tools
-- [ ] Batch annotation workflows
-
 ## Acknowledgments
 
-- Built on [Bacpipe](https://github.com/bioacoustic-ai/bacpipe) for bioacoustic model integration
-- Uses UMAP for dimensionality reduction
-- Inspired by ModAL for active learning functionality
+BaseAL is built on [Bacpipe](https://github.com/bioacoustic-ai/bacpipe) developed by [Vincent Kather](https://github.com/vskode).
