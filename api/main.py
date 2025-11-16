@@ -15,7 +15,7 @@ import umap
 
 # Add core module to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from core.active_learner import ActiveLearner
+from core.active_learner import ActiveLearner, Manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -37,8 +37,12 @@ BASE_DIR = Path(__file__).parent.parent
 EMBEDDINGS_BASE_PATH = BASE_DIR / "results" / "test_data" / "embeddings"
 ANNOTATIONS_BASE_PATH = BASE_DIR / "results" / "test_data" / "evaluations"
 
-# Global active learner instance
+# Global active learner instance (for backward compatibility with single experiment)
 active_learner: Optional[ActiveLearner] = None
+
+# Global manager instance (for managing multiple experiments)
+manager: Optional[Manager] = None
+selected_experiment_index: int = 0  # Which experiment to use for single-experiment endpoints
 
 
 def reduce_dimensions(embeddings: np.ndarray, n_components: int = 3) -> np.ndarray:
@@ -331,6 +335,246 @@ def get_embeddings_3d(model_name: str, dataset_name: str):
 #         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ==================== Manager Endpoints ====================
+
+@app.post("/api/manager/initialize")
+def initialize_manager(config_path: str = "core/config.yml"):
+    """
+    Initialize the Manager with a config file
+
+    Args:
+        config_path: Path to the YAML config file (relative to project root)
+
+    Returns:
+        Status and initial summary
+    """
+    global manager, selected_experiment_index
+
+    try:
+        config_file = BASE_DIR / config_path
+
+        if not config_file.exists():
+            raise HTTPException(status_code=404, detail=f"Config file not found: {config_file}")
+
+        logger.info(f"Initializing Manager with config: {config_file}")
+        logger.info(f"Base directory: {BASE_DIR}")
+
+        # Initialize Manager with BASE_DIR so all paths in config are resolved relative to project root
+        manager = Manager(config_file, base_dir=BASE_DIR)
+        selected_experiment_index = 0  # Reset to first experiment
+
+        return {
+            "status": "initialized",
+            "summary": manager.get_summary()
+        }
+
+    except Exception as e:
+        logger.error(f"Error initializing manager: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/manager/add-experiment")
+def add_experiment_to_manager(
+    name: str,
+    model_name: str = "2025-11-13_21-42___birdnet-test_data",
+    dataset_name: str = "esc50",
+    learning_rate: float = 0.0001,
+    hidden_dim: Optional[int] = None,
+    device: str = "cpu"
+):
+    """
+    Add a new experiment to the manager
+
+    Args:
+        name: Name for the new experiment
+        model_name: Model directory name
+        dataset_name: Dataset name
+        learning_rate: Learning rate
+        hidden_dim: Hidden dimension (optional)
+        device: Device to use
+
+    Returns:
+        Updated summary
+    """
+    global manager
+
+    if manager is None:
+        raise HTTPException(status_code=400, detail="Manager not initialized. Call /api/manager/initialize first.")
+
+    try:
+        # Extract base model name
+        base_model_name = "birdnet" if "birdnet" in model_name.lower() else "perch_bird"
+
+        # Create config
+        new_config = {
+            'embeddings_dir': str(EMBEDDINGS_BASE_PATH / model_name / "audio" / dataset_name),
+            'annotations_path': str(ANNOTATIONS_BASE_PATH / base_model_name / "classification" / "default_classifier_annotations.csv"),
+            'model_name': base_model_name,
+            'dataset_name': dataset_name,
+            'learning_rate': learning_rate,
+            'hidden_dim': hidden_dim,
+            'device': device
+        }
+
+        manager.add(new_config, name=name)
+
+        return {
+            "status": "added",
+            "summary": manager.get_summary()
+        }
+
+    except Exception as e:
+        logger.error(f"Error adding experiment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/manager/run")
+def run_manager_cycle(
+    n_samples: int = 5,
+    epochs: int = 5,
+    batch_size: int = 8,
+    parallel: bool = False
+):
+    """
+    Run one AL cycle across all experiments
+
+    Args:
+        n_samples: Number of samples per experiment
+        epochs: Training epochs
+        batch_size: Batch size
+        parallel: Run in parallel
+
+    Returns:
+        Results for each experiment
+    """
+    global manager
+
+    if manager is None:
+        raise HTTPException(status_code=400, detail="Manager not initialized. Call /api/manager/initialize first.")
+
+    try:
+        results = manager.run(
+            n_samples=n_samples,
+            epochs=epochs,
+            batch_size=batch_size,
+            parallel=parallel
+        )
+
+        return {
+            "results": results,
+            "summary": manager.get_summary()
+        }
+
+    except Exception as e:
+        logger.error(f"Error running manager cycle: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/manager/experiments")
+def list_manager_experiments():
+    """
+    Get list of all experiments in the manager
+
+    Returns:
+        List of experiment names and basic info
+    """
+    global manager
+
+    if manager is None:
+        raise HTTPException(status_code=400, detail="Manager not initialized. Call /api/manager/initialize first.")
+
+    return {
+        "experiments": [
+            {
+                "index": i,
+                "name": name,
+                "learning_rate": learner.learning_rate,
+                "model_name": learner.model_name,
+                "n_labeled": len(learner.labeled_indices),
+                "n_unlabeled": len(learner.unlabeled_indices)
+            }
+            for i, (learner, name) in enumerate(zip(manager.experiments, manager.experiment_names))
+        ]
+    }
+
+
+@app.get("/api/manager/summary")
+def get_manager_summary():
+    """
+    Get current summary of all experiments
+
+    Returns:
+        Summary of all experiments
+    """
+    global manager
+
+    if manager is None:
+        raise HTTPException(status_code=400, detail="Manager not initialized. Call /api/manager/initialize first.")
+
+    return manager.get_summary()
+
+
+@app.post("/api/manager/save")
+def save_manager_results(output_dir: str = "results/manager_experiments"):
+    """
+    Save all experiment results
+
+    Args:
+        output_dir: Directory to save results (relative to project root)
+
+    Returns:
+        Status
+    """
+    global manager
+
+    if manager is None:
+        raise HTTPException(status_code=400, detail="Manager not initialized. Call /api/manager/initialize first.")
+
+    try:
+        save_path = BASE_DIR / output_dir
+        manager.save(output_dir=save_path)
+
+        return {
+            "status": "saved",
+            "output_dir": str(save_path)
+        }
+
+    except Exception as e:
+        logger.error(f"Error saving results: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/manager/select-experiment")
+def select_experiment(experiment_index: int):
+    """
+    Select which experiment to use for single-experiment endpoints
+
+    Args:
+        experiment_index: Index of experiment to select
+
+    Returns:
+        Selected experiment info
+    """
+    global manager, selected_experiment_index, active_learner
+
+    if manager is None:
+        raise HTTPException(status_code=400, detail="Manager not initialized. Call /api/manager/initialize first.")
+
+    if experiment_index < 0 or experiment_index >= len(manager.experiments):
+        raise HTTPException(status_code=400, detail=f"Invalid experiment index: {experiment_index}")
+
+    selected_experiment_index = experiment_index
+    # Also set the active_learner to point to the selected experiment for backward compatibility
+    active_learner = manager.experiments[selected_experiment_index]
+
+    return {
+        "status": "selected",
+        "experiment_index": selected_experiment_index,
+        "experiment_name": manager.experiment_names[selected_experiment_index],
+        "state": active_learner.get_state()
+    }
+
+
 # ==================== Active Learning Endpoints ====================
 
 @app.post("/api/active-learning/initialize")
@@ -406,7 +650,7 @@ def sample_next_batch(n_samples: int = 200):
 
     try:
         # Sample using random strategy
-        selected_indices = active_learner.sample_random(n_samples=n_samples)
+        selected_indices = active_learner.sample(n_samples=n_samples)
 
         # Add to labeled set
         active_learner.add_samples(selected_indices)

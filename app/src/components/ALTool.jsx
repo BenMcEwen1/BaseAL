@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import PointCluster from './PointCluster';
 import Analytics from './Analytics';
+import ManagerPanel from './ManagerPanel';
 import {
   fetchModels,
   fetchDatasets,
@@ -257,6 +258,22 @@ export default function ALTool() {
           >
             Analytics
           </button>
+          <button
+            onClick={() => setActiveTab('manager')}
+            style={{
+              flex: 1,
+              padding: '16px',
+              background: activeTab === 'manager' ? '#2a2a2a' : 'transparent',
+              color: 'white',
+              border: 'none',
+              borderBottom: activeTab === 'manager' ? '2px solid #4ae290' : '2px solid transparent',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}
+          >
+            Manager
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -484,6 +501,21 @@ export default function ALTool() {
                 </div>
               )}
             </>
+          )}
+
+          {activeTab === 'manager' && (
+            <ManagerPanel
+              onEmbeddingsUpdate={(data) => {
+                setEmbeddingSteps([data.coordinates]);
+                setLabels(data.labels);
+                setLabelNames(data.label_names);
+                setLabeledMask(data.labeled_mask);
+                setStep(0);
+              }}
+              onExperimentSelect={(index) => {
+                console.log(`Selected experiment ${index}`);
+              }}
+            />
           )}
         </div>
       </div>

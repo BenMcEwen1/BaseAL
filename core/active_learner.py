@@ -71,14 +71,16 @@ class Manager:
     Manages multiple parallel Active Learning experiments
     """
 
-    def __init__(self, config_path: Path):
+    def __init__(self, config_path: Path, base_dir: Optional[Path] = None):
         """
         Initialize Manager with experiments from config file
 
         Args:
             config_path: Path to YAML configuration file
+            base_dir: Base directory for resolving relative paths in config (defaults to config file's parent)
         """
         self.config_path = Path(config_path)
+        self.base_dir = Path(base_dir) if base_dir else self.config_path.parent
         self.configs = self._load_configs(self.config_path)
         self.experiments = []
         self.experiment_names = []
@@ -103,12 +105,23 @@ class Manager:
 
         experiments = config_data['experiments']
 
-        # Convert string paths to Path objects
+        # Convert string paths to Path objects and resolve relative to base_dir
         for exp in experiments:
             if 'embeddings_dir' in exp:
-                exp['embeddings_dir'] = Path(exp['embeddings_dir'])
+                emb_path = Path(exp['embeddings_dir'])
+                # If relative path, resolve relative to base_dir
+                if not emb_path.is_absolute():
+                    exp['embeddings_dir'] = self.base_dir / emb_path
+                else:
+                    exp['embeddings_dir'] = emb_path
+
             if 'annotations_path' in exp:
-                exp['annotations_path'] = Path(exp['annotations_path'])
+                ann_path = Path(exp['annotations_path'])
+                # If relative path, resolve relative to base_dir
+                if not ann_path.is_absolute():
+                    exp['annotations_path'] = self.base_dir / ann_path
+                else:
+                    exp['annotations_path'] = ann_path
 
         logger.info(f"Loaded {len(experiments)} experiment configurations from {path}")
         return experiments
@@ -193,7 +206,7 @@ class Manager:
             Training metrics dictionary
         """
         # Sample new data points
-        selected_indices = learner.sample_random(n_samples)
+        selected_indices = learner.sample(n_samples)
 
         if len(selected_indices) > 0:
             # Add selected samples to labeled set
@@ -463,7 +476,7 @@ class ActiveLearner:
 
         return embeddings, labels, label_to_idx, idx_to_label
 
-    def sample_random(self, n_samples: int = 5) -> List[int]:
+    def sample(self, n_samples: int = 5) -> List[int]:
         """
         Random sampling strategy
 
@@ -568,6 +581,7 @@ class ActiveLearner:
         metrics = {
             "loss": avg_loss,
             "accuracy": accuracy,
+            # "test": [1,2,3],
             "n_labeled": len(self.labeled_indices),
             "n_unlabeled": len(self.unlabeled_indices)
         }

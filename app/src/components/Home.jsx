@@ -27,7 +27,7 @@ export default function Home({ onGetStarted }) {
         <div style={{
           width: '50px',
           height: '50px',
-          border: '2px dashed #444',
+          // border: '2px dashed #444',
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
@@ -35,7 +35,15 @@ export default function Home({ onGetStarted }) {
           color: '#666',
           fontSize: '12px'
         }}>
-          Logo
+            <img
+              src='../public/baseAL_logo.png'
+              alt='BaseAL Logo'
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain'
+              }}
+            />
         </div>
 
         {/* Links - Right */}
@@ -97,21 +105,30 @@ export default function Home({ onGetStarted }) {
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '30px'
+          gap: '25px'
         }}>
           {/* Logo Space - Next to Title */}
           <div style={{
-            width: '80px',
-            height: '80px',
-            border: '2px dashed #444',
+            width: '120px',
+            height: '120px',
+            // border: '2px dashed #444',
             borderRadius: '12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#666',
-            fontSize: '14px'
+            color: '#666', 
+            fontSize: '14px',
+            overflow: 'hidden'
           }}>
-            Logo
+            <img
+              src='../public/baseAL_logo.png'
+              alt='BaseAL Logo'
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain'
+              }}
+            />
           </div>
 
           {/* Title */}
@@ -122,7 +139,7 @@ export default function Home({ onGetStarted }) {
             margin: 0,
             letterSpacing: '10px'
           }}>
-            BaseAL
+            Base<b style={{fontWeight: '500'}}>AL</b><p style={{fontSize: '12px', letterSpacing: '5px', paddingLeft: '5px'}}>v1.0.0</p>
           </h1>
         </div>
 
@@ -150,7 +167,7 @@ export default function Home({ onGetStarted }) {
             borderRadius: '8px',
             cursor: 'pointer',
             transition: 'transform 0.2s, background 0.2s',
-            marginTop: '20px'
+            // marginTop: '20px'
           }}
           onMouseEnter={(e) => {
             e.target.style.transform = 'translateY(-2px)';

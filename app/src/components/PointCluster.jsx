@@ -171,7 +171,7 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.1}
+        size={0.2}
         vertexColors
         sizeAttenuation
         map={circleTexture}

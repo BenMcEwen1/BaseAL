@@ -202,3 +202,148 @@ export async function getActiveLearningState() {
     throw error;
   }
 }
+
+// ==================== Manager API ====================
+
+/**
+ * Initialize Manager with config file
+ * @param {string} configPath - Path to config file (default: "core/config.yml")
+ * @returns {Promise<Object>} Status and initial summary
+ */
+export async function initializeManager(configPath = "core/config.yml") {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/manager/initialize?config_path=${encodeURIComponent(configPath)}`,
+      { method: 'POST' }
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error initializing manager:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add new experiment to manager
+ * @param {Object} experimentConfig - Experiment configuration
+ * @returns {Promise<Object>} Updated summary
+ */
+export async function addExperimentToManager(experimentConfig) {
+  try {
+    const params = new URLSearchParams(experimentConfig);
+    const response = await fetch(
+      `${API_BASE_URL}/api/manager/add-experiment?${params.toString()}`,
+      { method: 'POST' }
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding experiment:', error);
+    throw error;
+  }
+}
+
+/**
+ * Run one AL cycle across all experiments
+ * @param {number} nSamples - Number of samples per experiment
+ * @param {number} epochs - Training epochs
+ * @param {number} batchSize - Batch size
+ * @param {boolean} parallel - Run in parallel
+ * @returns {Promise<Object>} Results for each experiment
+ */
+export async function runManagerCycle(nSamples = 5, epochs = 5, batchSize = 8, parallel = false) {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/manager/run?n_samples=${nSamples}&epochs=${epochs}&batch_size=${batchSize}&parallel=${parallel}`,
+      { method: 'POST' }
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error running manager cycle:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get list of all experiments
+ * @returns {Promise<Object>} List of experiments
+ */
+export async function getManagerExperiments() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/manager/experiments`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting experiments:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get manager summary
+ * @returns {Promise<Object>} Summary of all experiments
+ */
+export async function getManagerSummary() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/manager/summary`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting summary:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save manager results
+ * @param {string} outputDir - Output directory path
+ * @returns {Promise<Object>} Save status
+ */
+export async function saveManagerResults(outputDir = "results/manager_experiments") {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/manager/save?output_dir=${encodeURIComponent(outputDir)}`,
+      { method: 'POST' }
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error saving results:', error);
+    throw error;
+  }
+}
+
+/**
+ * Select which experiment to use for single-experiment endpoints
+ * @param {number} experimentIndex - Index of experiment to select
+ * @returns {Promise<Object>} Selected experiment info
+ */
+export async function selectExperiment(experimentIndex) {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/manager/select-experiment?experiment_index=${experimentIndex}`,
+      { method: 'POST' }
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error selecting experiment:', error);
+    throw error;
+  }
+}
