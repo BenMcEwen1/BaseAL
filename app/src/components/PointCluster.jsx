@@ -10,26 +10,28 @@ import * as THREE from 'three';
  * @param {Array<number>} props.labels - Array of label indices for each point
  * @param {Array<string>} props.labelNames - Array of label names for each point
  * @param {Array<boolean>} props.labeledMask - Array indicating which points are labeled
+ * @param {Array<number>} props.uncertainties - Array of uncertainty values [0, 1] for scaling point sizes
  */
-export default function PointCluster({ embeddingData, currentStep, labels, labelNames, labeledMask }) {
+export default function PointCluster({ embeddingData, currentStep, labels, labelNames, labeledMask, uncertainties }) {
   // console.log('PointCluster props:', { embeddingData, labels, labelNames, labeledMask });
   const pointsRef = useRef();
   const currentStepRef = useRef(currentStep);
 
   currentStepRef.current = currentStep;
 
-  // Create a unique key based on labels and labeledMask to force recreation when colors change
+  // Create a unique key based on labels, labeledMask, and uncertainties to force recreation when they change
   const colorKey = useMemo(() => {
     const labelsStr = labels ? labels.join(',') : 'no-labels';
     const maskStr = labeledMask ? labeledMask.map(m => m ? '1' : '0').join('') : 'no-mask';
-    return `${labelsStr}-${maskStr}`;
-  }, [labels, labeledMask]);
+    const uncertStr = uncertainties ? uncertainties.map(u => u.toFixed(2)).join(',') : 'no-uncertainties';
+    return `${labelsStr}-${maskStr}-${uncertStr}`;
+  }, [labels, labeledMask, uncertainties]);
 
-  // Convert embedding data to Float32Arrays and generate colors
-  const { positionSteps, colors } = useMemo(() => {
+  // Convert embedding data to Float32Arrays and generate colors, sizes, and alphas
+  const { positionSteps, colors, sizes, alphas } = useMemo(() => {
     // Handle empty data case
     if (!embeddingData || embeddingData.length === 0) {
-      return { positionSteps: [], colors: new Float32Array(0) };
+      return { positionSteps: [], colors: new Float32Array(0), sizes: new Float32Array(0), alphas: new Float32Array(0) };
     }
 
     const steps = embeddingData.map(stepData => {
@@ -65,9 +67,9 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
 
         // Convert HSL to RGB for vibrant, distinct colors
         const h = hue / 60;
-        const c = 0.8; // Saturation
+        const c = 0.2; // Saturation - increased for more vibrant colors
         const x = c * (1 - Math.abs((h % 2) - 1));
-        const m = 0.3; // Lightness adjustment
+        const m = 0.1
 
         let r, g, b;
         if (h < 1) { r = c; g = x; b = 0; }
@@ -77,13 +79,20 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
         else if (h < 5) { r = x; g = 0; b = c; }
         else { r = c; g = 0; b = x; }
 
-        // Check if this point is labeled - make unlabeled points dimmer
+        // Check if this point is labeled - make labeled points grey
         const isLabeled = labeledMask ? labeledMask[i] : true;
-        const intensity = isLabeled ? 1.0 : 0.3;
 
-        cols[i * 3] = (r + m) * intensity;
-        cols[i * 3 + 1] = (g + m) * intensity;
-        cols[i * 3 + 2] = (b + m) * intensity;
+        if (isLabeled) {
+          // Labeled points: grey color
+          cols[i * 3] = 0.4;
+          cols[i * 3 + 1] = 0.4;
+          cols[i * 3 + 2] = 0.4;
+        } else {
+          // Unlabeled points: vibrant saturated colors (no lightness adjustment)
+          cols[i * 3] = r + m;
+          cols[i * 3 + 1] = g + m;
+          cols[i * 3 + 2] = b + m;
+        }
 
         // if (i < 5) {
         //   console.log(`  RGB: [${cols[i * 3]}, ${cols[i * 3 + 1]}, ${cols[i * 3 + 2]}], isLabeled=${isLabeled}`);
@@ -101,8 +110,48 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
       }
     }
 
-    return { positionSteps: steps, colors: cols };
-  }, [embeddingData, labels, labeledMask]);
+    // Generate sizes based on uncertainties
+    const pointSizes = new Float32Array(count);
+    const minSize = 0.3;  // Minimum point size (for labeled/certain points)
+    const maxSize = 0.7;  // Maximum point size (for uncertain points)
+
+    console.log(uncertainties)
+    if (uncertainties && uncertainties.length === count) {
+      // Find actual min/max uncertainties in the data for relative scaling
+      const minUncertainty = Math.min(...uncertainties);
+      const maxUncertainty = Math.max(...uncertainties);
+      const uncertaintyRange = maxUncertainty - minUncertainty;
+
+      // Scale points relative to actual uncertainty distribution
+      for (let i = 0; i < count; i++) {
+        const uncertainty = uncertainties[i];
+
+        if (uncertaintyRange > 0.01) {  // If there's variation in uncertainties
+          // Normalize to [0, 1] based on actual data range
+          const normalizedUncertainty = (uncertainty - minUncertainty) / uncertaintyRange;
+          pointSizes[i] = minSize + normalizedUncertainty * (maxSize - minSize);
+        } else {
+          // All uncertainties are similar, use average size
+          pointSizes[i] = (minSize + maxSize) / 2;
+        }
+      }
+    } else {
+      console.log("Fallback point size")
+      // Fallback: uniform size
+      for (let i = 0; i < count; i++) {
+        pointSizes[i] = 0.2; // Default medium size
+      }
+    }
+
+    // Generate alpha (transparency) values based on labeled status
+    const pointAlphas = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      const isLabeled = labeledMask ? labeledMask[i] : true;
+      pointAlphas[i] = isLabeled ? 0.2 : 1.0;  // Labeled: semi-transparent, Unlabeled: opaque
+    }
+
+    return { positionSteps: steps, colors: cols, sizes: pointSizes, alphas: pointAlphas };
+  }, [embeddingData, labels, labeledMask, uncertainties]);
 
   // Initialize with first step positions (or empty if no data)
   const currentPositions = useRef(
@@ -133,6 +182,14 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
     const texture = new THREE.Texture(canvas);
     texture.needsUpdate = true;
     return texture;
+  }, []);
+
+  // Shader modification to use per-vertex sizes
+  const onBeforeCompile = useMemo(() => (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      'uniform float size;',
+      'attribute float size;'
+    );
   }, []);
 
   // Animate transition between steps
@@ -169,16 +226,29 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
           array={colors}
           itemSize={3}
         />
+        <bufferAttribute
+          attach="attributes-size"
+          count={sizes.length}
+          array={sizes}
+          itemSize={1}
+        />
+        <bufferAttribute
+          attach="attributes-alpha"
+          count={alphas.length}
+          array={alphas}
+          itemSize={1}
+        />
       </bufferGeometry>
       <pointsMaterial
-        size={0.2}
+        size={1.0}
         vertexColors
         sizeAttenuation
         map={circleTexture}
         transparent
-        alphaTest={0.01}
+        // alphaTest={0.01}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
+        onBeforeCompile={onBeforeCompile}
       />
     </points>
   );

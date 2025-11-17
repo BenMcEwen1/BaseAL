@@ -58,7 +58,7 @@ export default function Home({ onGetStarted, onDocsClick }) {
               color: '#fff',
               textDecoration: 'none',
               padding: '10px 20px',
-              background: '#2a2a2a',
+              background: 'rgba(255, 255, 255, 0.2)',
               border: 'none',
               borderRadius: '6px',
               fontSize: '14px',
@@ -79,7 +79,7 @@ export default function Home({ onGetStarted, onDocsClick }) {
               color: '#fff',
               textDecoration: 'none',
               padding: '10px 20px',
-              background: '#2a2a2a',
+              background: 'rgba(255, 255, 255, 0.2)',
               borderRadius: '6px',
               fontSize: '14px',
               fontWeight: '500',
@@ -89,8 +89,8 @@ export default function Home({ onGetStarted, onDocsClick }) {
               alignItems: 'center',
               gap: '8px'
             }}
-            onMouseEnter={(e) => e.target.style.background = '#3a3a3a'}
-            onMouseLeave={(e) => e.target.style.background = '#2a2a2a'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.4)'}
+            onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
           >
             <img
               src="/GitHub_Logos/GitHub Logos/SVG/GitHub_Invertocat_Light.svg"

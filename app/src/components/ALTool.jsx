@@ -35,6 +35,7 @@ export default function ALTool() {
   const [labels, setLabels] = useState(null);
   const [labelNames, setLabelNames] = useState(null);
   const [labeledMask, setLabeledMask] = useState(null);
+  const [uncertainties, setUncertainties] = useState(null);
   const [activeTab, setActiveTab] = useState('manager');
   const [isTrainingAll, setIsTrainingAll] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -208,6 +209,7 @@ export default function ALTool() {
       setLabels(data.labels);
       setLabelNames(data.label_names);
       setLabeledMask(data.labeled_mask);
+      setUncertainties(data.uncertainties);
       setStep(0);
     } catch (err) {
       console.error('Failed to update embeddings:', err);
@@ -268,7 +270,7 @@ export default function ALTool() {
             style={{
               flex: 1,
               padding: '16px',
-              background: activeTab === 'manager' ? '#2a2a2a' : 'transparent',
+              background: activeTab === 'manager' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
               color: 'white',
               border: 'none',
               borderBottom: activeTab === 'manager' ? '2px solid #4ae290' : '2px solid transparent',
@@ -284,7 +286,7 @@ export default function ALTool() {
             style={{
               flex: 1,
               padding: '16px',
-              background: activeTab === 'analytics' ? '#2a2a2a' : 'transparent',
+              background: activeTab === 'analytics' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
               color: 'white',
               border: 'none',
               borderBottom: activeTab === 'analytics' ? '2px solid #4ae290' : '2px solid transparent',
@@ -531,6 +533,7 @@ export default function ALTool() {
                 setLabels(data.labels);
                 setLabelNames(data.label_names);
                 setLabeledMask(data.labeled_mask);
+                setUncertainties(data.uncertainties);
                 setStep(0);
               }}
               onExperimentSelect={async (index) => {
@@ -615,6 +618,7 @@ export default function ALTool() {
             labels={labels}
             labelNames={labelNames}
             labeledMask={labeledMask}
+            uncertainties={uncertainties}
           />
           <OrbitControls
             enableDamping

@@ -31,7 +31,7 @@ export default function ComparisonChart({ experimentsData, selectedMetric }) {
     if (!experimentsData || experimentsData.length === 0) {
         return (
             <div style={{
-                background: '#2a2a2a',
+                background: 'rgba(255, 255, 255, 0.1)',
                 padding: '12px 20px',
                 borderRadius: '8px',
                 color: 'white',
@@ -218,7 +218,7 @@ export default function ComparisonChart({ experimentsData, selectedMetric }) {
 
     return (
         <div style={{
-            background: '#2a2a2a',
+            background: 'rgba(255, 255, 255, 0.2)',
             padding: '16px 20px',
             borderRadius: '8px',
             width: '100%',

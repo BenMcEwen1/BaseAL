@@ -1,27 +1,38 @@
 # Configuration file for Active Learning experiments
-# Each experiment will be run in parallel or sequentially
 
 experiments:
-  # Experiment 1: Low learning rate
+  # Experiment 1: Margin Sampling
   - name: Margin
     embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
     annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
     model_name: birdnet
     dataset_name: esc50
     hidden_dim: null  # Will default to input_dim
-    sampling_strategy: margin
-    learning_rate: 0.01  # Low learning rate
-    repeats: 2
+    sampling_strategy: margin 
+    learning_rate: 0.01
+    repeats: 2 # Number of iterations per AL cycle to compute mean and SD, default is 1.
     device: cpu
 
-  # Experiment 2: Higher learning rate
+  # Experiment 2: Random Sampling
   - name: Random
     embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
     annotations_path: results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
     model_name: birdnet
     dataset_name: esc50
-    hidden_dim: null  # Will default to input_dim
+    hidden_dim: null
     sampling_strategy: random
-    learning_rate: 0.01  # 10x higher learning rate
+    learning_rate: 0.01 
     repeats: 2
+    device: cpu
+
+  # Experiment 1: Margin Sampling
+  - name: Entropy
+    embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
+    annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
+    model_name: birdnet
+    dataset_name: esc50
+    hidden_dim: null  # Will default to input_dim
+    sampling_strategy: entropy 
+    learning_rate: 0.01
+    repeats: 2 # Number of iterations per AL cycle to compute mean and SD, default is 1.
     device: cpu

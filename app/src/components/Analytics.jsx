@@ -318,7 +318,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
             }}>
                 {/* Dropdown Menu */}
                 <div style={{
-                    background: '#2a2a2a',
+                    background: 'rgba(255, 255, 255, 0.2)',
                     padding: '16px',
                     borderRadius: '8px',
                     display: 'flex',
@@ -356,7 +356,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
 
                 {/* Chart */}
                 <div style={{
-                    background: '#2a2a2a',
+                    background: 'rgba(255, 255, 255, 0.1)',
                     padding: '16px 20px',
                     borderRadius: '8px',
                     flex: 1,
@@ -367,7 +367,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
             </div>
             {/* Loss Chart */}
             <div style={{
-                background: '#2a2a2a',
+                background: 'rgba(255, 255, 255, 0.1)',
                 padding: '16px 20px',
                 borderRadius: '8px',
                 width: '100%',

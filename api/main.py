@@ -704,7 +704,7 @@ def get_active_learning_embeddings():
     Get 3D embeddings from the trained model
 
     Returns:
-        3D coordinates and labels
+        3D coordinates, labels, and per-sample uncertainties
     """
     global active_learner
 
@@ -715,22 +715,38 @@ def get_active_learning_embeddings():
         # Get 3D embeddings from model
         embeddings_3d = active_learner.get_embeddings_3d()
 
-        # Get labels - apply the same subsampling as embeddings
+        # Get labels and uncertainties - apply the same subsampling as embeddings
         if active_learner.idx is not None:
             # Use the same subsampling indices
             labels = active_learner.labels[active_learner.idx].tolist()
             # Get labeled/unlabeled status for subsampled indices
             labeled_mask = [i in active_learner.labeled_indices for i in active_learner.idx]
+            # Get uncertainties for subsampled indices
+            uncertainties = active_learner.uncertainties[active_learner.idx].tolist()
         else:
             # No subsampling applied
             labels = active_learner.labels.tolist()
             labeled_mask = [i in active_learner.labeled_indices for i in range(len(embeddings_3d))]
+            uncertainties = active_learner.uncertainties.tolist()
+
+        # Debug: Check uncertainty range
+        import numpy as np
+        unc_array = np.array(uncertainties)
+        logger.info(f"Uncertainties - min: {unc_array.min():.4f}, max: {unc_array.max():.4f}, mean: {unc_array.mean():.4f}")
+        logger.info(f"Uncertainties shape: {unc_array.shape}, unique values: {len(np.unique(unc_array))}")
+        print(f"Sample uncertainties: {uncertainties[:10]}")
+
+        # Sanity check: clip to [0, 1] if values are out of range
+        if unc_array.min() < 0 or unc_array.max() > 1:
+            logger.warning(f"Uncertainties out of range [0, 1]! Clipping values.")
+            uncertainties = np.clip(unc_array, 0, 1).tolist()
 
         return {
             "coordinates": embeddings_3d.tolist(),
             "labels": labels,
             "label_names": [active_learner.idx_to_label[label] for label in labels],
             "labeled_mask": labeled_mask,
+            "uncertainties": uncertainties,  # Normalized uncertainty scores [0, 1]
             "state": active_learner.get_state()
         }
 

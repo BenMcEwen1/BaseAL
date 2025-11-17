@@ -122,7 +122,7 @@ export default function Docs({ isOpen, onClose }) {
         {/* Left Sidebar: Navigation (33%) */}
         <div style={{
           width: '33%',
-          background: '#0a0a0a',
+          background: '#060014ff',
           borderRight: '1px solid #2a2a2a',
           overflowY: 'auto',
           padding: '20px'

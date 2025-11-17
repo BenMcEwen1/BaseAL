@@ -442,6 +442,10 @@ class ActiveLearner:
         self.unlabeled_indices = list(range(len(self.embeddings)))
         self.training_history = []
 
+        # Per-sample uncertainties (updated after each sampling step)
+        # Initialize with zeros for all samples
+        self.uncertainties = np.zeros(len(self.embeddings))
+
         # Dimensionality reduction (fitted once and reused)
         self.reducer = None
         self.scaler = None
@@ -512,6 +516,7 @@ class ActiveLearner:
     def sample(self, n_samples: Optional[int] = None) -> List[int]:
         """
         Sample unlabeled data points using the configured sampling strategy
+        Also updates per-sample uncertainty scores for visualization
 
         Args:
             n_samples: Number of samples to select (overrides default if provided)
@@ -538,12 +543,27 @@ class ActiveLearner:
             predictions = torch.softmax(outputs, dim=1).cpu().numpy()
 
         # Call the sampling strategy with all available data
-        selected = self.sampling_strategy.select(
+        # Now returns both selected indices and uncertainties
+        selected, unlabeled_uncertainties = self.sampling_strategy.select(
             unlabeled_indices=self.unlabeled_indices,
             predictions=predictions,
             embeddings=self.embeddings,
             model=self.model
         )
+
+        # Debug: Check uncertainty values from sampling strategy
+        logger.info(f"Unlabeled uncertainties - min: {unlabeled_uncertainties.min():.4f}, max: {unlabeled_uncertainties.max():.4f}, mean: {unlabeled_uncertainties.mean():.4f}")
+        logger.info(f"Unlabeled uncertainties shape: {unlabeled_uncertainties.shape}, expected: {len(self.unlabeled_indices)}")
+
+        # Update uncertainties array for all samples
+        # Labeled samples have uncertainty = 0
+        self.uncertainties = np.zeros(len(self.embeddings))
+        # Unlabeled samples have computed uncertainty
+        self.uncertainties[self.unlabeled_indices] = unlabeled_uncertainties
+
+        # Debug: Check final uncertainties
+        logger.info(f"Final uncertainties - min: {self.uncertainties.min():.4f}, max: {self.uncertainties.max():.4f}")
+        logger.info(f"Non-zero uncertainties: {np.count_nonzero(self.uncertainties)} out of {len(self.uncertainties)}")
 
         # Restore original n_samples if it was overridden
         if n_samples is not None:
@@ -815,7 +835,7 @@ class ActiveLearner:
         Get current state of the active learner
 
         Returns:
-            Dictionary with current state
+            Dictionary with current state including per-sample uncertainties
         """
         return {
             "n_labeled": int(len(self.labeled_indices)),
@@ -824,5 +844,6 @@ class ActiveLearner:
             "unlabeled_indices": [int(idx) for idx in self.unlabeled_indices],
             "training_history": self.training_history,
             "num_classes": int(len(self.label_to_idx)),
-            "labels": list(self.label_to_idx.keys())  # Already strings from initialization
+            "labels": list(self.label_to_idx.keys()),  # Already strings from initialization
+            "uncertainties": self.uncertainties.tolist()  # Per-sample uncertainty scores [0, 1]
         }

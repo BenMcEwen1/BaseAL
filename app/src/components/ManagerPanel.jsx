@@ -256,7 +256,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
       {/* Initialization Selection */}
       {!isInitialized && (
         <div style={{
-          background: '#2a2a2a',
+          background: 'rgba(255, 255, 255, 0.1)',
           padding: '16px 20px',
           borderRadius: '8px',
           color: 'white'
@@ -430,7 +430,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
       {/* Experiments List */}
       {isInitialized && (
         <div style={{
-          background: '#2a2a2a',
+          background: 'rgba(255, 255, 255, 0.2)',
           padding: '16px 20px',
           borderRadius: '8px',
           color: 'white'
@@ -461,7 +461,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
           ) : (
             <div style={{
               padding: '14px',
-              background: '#1a1a1a',
+              background: 'rgba(255, 255, 255, 0.2)',
               borderRadius: '4px',
               fontSize: '13px',
               color: '#aaa',
@@ -619,7 +619,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
       {/* Run Manager */}
       {experiments.length > 0 && (
         <div style={{
-          background: '#2a2a2a',
+          background: 'rgba(255, 255, 255, 0.2)',
           padding: '16px 20px',
           borderRadius: '8px',
           color: 'white'

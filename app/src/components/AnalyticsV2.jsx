@@ -14,7 +14,7 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experime
             top: 0,
             width: '60vw',
             height: '100vh',
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            backgroundColor: '#060014ff', 
             backdropFilter: 'blur(10px)',
             zIndex: 10,
             display: 'flex',
