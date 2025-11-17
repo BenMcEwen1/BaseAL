@@ -15,10 +15,12 @@ import umap
 import time
 import yaml
 import json
+import copy
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import f1_score, average_precision_score
 
 # Suppress numba warnings and debug output
 warnings.filterwarnings('ignore', module='numba')
@@ -346,7 +348,10 @@ class ActiveLearner:
         dataset_name: str = "FewShot",
         hidden_dim: Optional[int] = None,
         learning_rate: float = 0.0001,
-        device: str = "cpu"
+        repeats: int = 1,
+        device: str = "cpu",
+        sampling_strategy: str = "random",
+        n_samples_per_iteration: int = 5
     ):
         """
         Initialize active learner
@@ -358,7 +363,10 @@ class ActiveLearner:
             dataset_name: Name of the dataset (e.g., 'FewShot')
             hidden_dim: Dimension of intermediate embedding
             learning_rate: Learning rate for optimizer
+            repeats: Number of training repeats for computing mean/std metrics
             device: Device to use ('cpu' or 'cuda')
+            sampling_strategy: Sampling method to use ('random', 'entropy', 'uncertainty', 'margin')
+            n_samples_per_iteration: Default number of samples to select per iteration
         """
         self.embeddings_dir = embeddings_dir
         self.annotations_path = annotations_path
@@ -366,6 +374,7 @@ class ActiveLearner:
         self.dataset_name = dataset_name
         self.learning_rate = learning_rate
         self.device = device
+        self.repeats = repeats
 
         self.dim_reduction_method = "UMAP"
         self.umap_transform_batch_size = 500
@@ -403,6 +412,30 @@ class ActiveLearner:
 
         # Loss function
         self.criterion = nn.CrossEntropyLoss()
+
+        # Initialize sampling strategy
+        from .utils.sampling import (
+            RandomSampling,
+            EntropySampling,
+            UncertaintySampling,
+            MarginSampling
+        )
+
+        strategy_map = {
+            'random': RandomSampling,
+            'entropy': EntropySampling,
+            'uncertainty': UncertaintySampling,
+            'margin': MarginSampling
+        }
+
+        if sampling_strategy not in strategy_map:
+            raise ValueError(
+                f"Unknown sampling strategy: {sampling_strategy}. "
+                f"Available strategies: {list(strategy_map.keys())}"
+            )
+
+        self.sampling_strategy = strategy_map[sampling_strategy](n_samples=n_samples_per_iteration)
+        logger.info(f"Initialized '{sampling_strategy}' sampling strategy with n_samples={n_samples_per_iteration}")
 
         # Active learning state
         self.labeled_indices = []
@@ -476,12 +509,12 @@ class ActiveLearner:
 
         return embeddings, labels, label_to_idx, idx_to_label
 
-    def sample(self, n_samples: int = 5) -> List[int]:
+    def sample(self, n_samples: Optional[int] = None) -> List[int]:
         """
-        Random sampling strategy
+        Sample unlabeled data points using the configured sampling strategy
 
         Args:
-            n_samples: Number of samples to select
+            n_samples: Number of samples to select (overrides default if provided)
 
         Returns:
             List of selected indices
@@ -490,9 +523,34 @@ class ActiveLearner:
             logger.warning("No unlabeled samples remaining")
             return []
 
-        n_samples = min(n_samples, len(self.unlabeled_indices))
-        selected = np.random.choice(self.unlabeled_indices, size=n_samples, replace=False)
-        return selected.tolist()
+        # Override n_samples if provided
+        if n_samples is not None:
+            original_n = self.sampling_strategy.n_samples
+            self.sampling_strategy.n_samples = n_samples
+
+        # Get predictions if model has been trained
+        predictions = None
+        # if len(self.labeled_indices) > 0:  # Only get predictions if model is trained
+        self.model.eval()
+        with torch.no_grad():
+            X_all = torch.from_numpy(self.embeddings).to(self.device)
+            outputs = self.model(X_all)
+            predictions = torch.softmax(outputs, dim=1).cpu().numpy()
+
+        # Call the sampling strategy with all available data
+        selected = self.sampling_strategy.select(
+            unlabeled_indices=self.unlabeled_indices,
+            predictions=predictions,
+            embeddings=self.embeddings,
+            model=self.model
+        )
+
+        # Restore original n_samples if it was overridden
+        if n_samples is not None:
+            self.sampling_strategy.n_samples = original_n
+
+        logger.info(f"Selected {len(selected)} samples using {self.sampling_strategy.__class__.__name__}")
+        return selected
 
     def add_samples(self, indices: List[int]):
         """
@@ -515,79 +573,150 @@ class ActiveLearner:
         Args:
             epochs: Number of training epochs
             batch_size: Batch size for training
+            repeats: Number of times to repeat training cycle for aggregating statistics
 
         Returns:
-            Dictionary with training metrics
+            Dictionary with training metrics including mean and SD
         """
         if len(self.labeled_indices) == 0:
             logger.warning("No labeled samples to train on")
-            return {"loss": 0.0, "accuracy": 0.0}
+            return {
+                "loss": 0.0, "accuracy": 0.0, "f1_score": 0.0, "mAP": 0.0,
+                "loss_sd": 0.0, "accuracy_sd": 0.0, "f1_score_sd": 0.0, "mAP_sd": 0.0
+            }
 
-        self.model.train()
+        # Store original model state for repeats
+        original_model_state = copy.deepcopy(self.model.state_dict())
+        original_optimizer_state = copy.deepcopy(self.optimizer.state_dict())
 
-        # Prepare labeled data (keep original for evaluation)
-        X_train_orig = torch.from_numpy(self.embeddings[self.labeled_indices]).to(self.device)
-        y_train_orig = torch.from_numpy(self.labels[self.labeled_indices]).to(self.device)
+        # Collect metrics across repeats
+        all_losses = []
+        all_accuracies = []
+        all_f1_scores = []
+        all_mAPs = []
 
-        # Training loop
-        total_loss = 0.0
+        for repeat_idx in range(self.repeats):
+            if repeat_idx > 0:
+                # Reset model and optimizer to original state for each repeat
+                self.model.load_state_dict(copy.deepcopy(original_model_state))
+                self.optimizer.load_state_dict(copy.deepcopy(original_optimizer_state))
+                logger.info(f"Starting repeat {repeat_idx + 1}/{self.repeats}")
 
-        for epoch in range(epochs):
-            # Shuffle data for this epoch
-            perm = torch.randperm(len(X_train_orig))
-            X_train_shuffled = X_train_orig[perm]
-            y_train_shuffled = y_train_orig[perm]
+            self.model.train()
 
-            train_length = X_train_shuffled.shape[0]
+            # Prepare labeled data
+            X_train_orig = torch.from_numpy(self.embeddings[self.labeled_indices]).to(self.device)
+            y_train_orig = torch.from_numpy(self.labels[self.labeled_indices]).to(self.device)
 
-            epoch_loss = 0.0
+            # Training loop
+            total_loss = 0.0
 
-            # Mini-batch training
-            for i in range(0, len(X_train_orig), batch_size):
-                batch_X = X_train_shuffled[i:i + batch_size]
-                batch_y = y_train_shuffled[i:i + batch_size]
+            for epoch in range(epochs):
+                # Shuffle data for this epoch
+                perm = torch.randperm(len(X_train_orig))
+                X_train_shuffled = X_train_orig[perm]
+                y_train_shuffled = y_train_orig[perm]
 
-                # Forward pass
-                self.optimizer.zero_grad()
-                outputs = self.model(batch_X)
-                loss = self.criterion(outputs, batch_y)
+                train_length = X_train_shuffled.shape[0]
+                epoch_loss = 0.0
 
-                # Backward pass
-                loss.backward()
-                self.optimizer.step()
+                # Mini-batch training
+                for i in range(0, len(X_train_orig), batch_size):
+                    batch_X = X_train_shuffled[i:i + batch_size]
+                    batch_y = y_train_shuffled[i:i + batch_size]
 
-                epoch_loss += loss.item()
+                    # Forward pass
+                    self.optimizer.zero_grad()
+                    outputs = self.model(batch_X)
+                    loss = self.criterion(outputs, batch_y)
 
-            total_loss = epoch_loss / train_length
+                    # Backward pass
+                    loss.backward()
+                    self.optimizer.step()
 
-        # Calculate final accuracy on labeled set (using ORIGINAL unshuffled order)
-        self.model.eval()
-        with torch.no_grad():
-            outputs = self.model(torch.from_numpy(self.embeddings).to(self.device))
-            
-            _, predicted = torch.max(outputs, 1)
-            # print("Model predicted", predicted.shape, predicted)
+                    epoch_loss += loss.item()
 
-            labels = torch.from_numpy(self.labels).to(self.device)
-            # print("label", labels.shape, labels)
+                total_loss = epoch_loss / train_length
 
-            correct = (predicted == labels).sum().item()
-            total = len(labels)
+            # Evaluation on all data
+            self.model.eval()
+            with torch.no_grad():
+                # Get predictions for all data
+                X_all = torch.from_numpy(self.embeddings).to(self.device)
+                outputs = self.model(X_all)
+                probabilities = torch.softmax(outputs, dim=1).cpu().numpy()
 
-        # print(correct, total)
-        accuracy = correct / total if total > 0 else 0.0
-        avg_loss = total_loss / max(1, len(X_train_orig) // batch_size)
+                _, predicted = torch.max(outputs, 1)
+                predicted_np = predicted.cpu().numpy()
+                labels_np = self.labels
 
+                # Calculate accuracy
+                correct = (predicted_np == labels_np).sum().item()
+                accuracy = correct / len(labels_np) if len(labels_np) > 0 else 0.0
+
+                # Calculate F1 score (macro average)
+                num_classes = len(self.label_to_idx)
+                if num_classes > 2:
+                    f1 = f1_score(labels_np, predicted_np, average='macro', zero_division=0)
+                else:
+                    f1 = f1_score(labels_np, predicted_np, average='binary', zero_division=0)
+
+                # Calculate mAP (mean Average Precision)
+                # For multiclass, we use one-vs-rest approach
+                try:
+                    # Create one-hot encoding for true labels
+                    labels_onehot = np.zeros((len(labels_np), num_classes))
+                    labels_onehot[np.arange(len(labels_np)), labels_np] = 1
+
+                    # Calculate average precision for each class
+                    aps = []
+                    for class_idx in range(num_classes):
+                        if labels_onehot[:, class_idx].sum() > 0:  # Only if class has samples
+                            ap = average_precision_score(
+                                labels_onehot[:, class_idx],
+                                probabilities[:, class_idx]
+                            )
+                            aps.append(ap)
+
+                    mAP = np.mean(aps) if len(aps) > 0 else 0.0
+                except:
+                    # Fallback if mAP calculation fails
+                    mAP = 0.0
+                    logger.warning("mAP calculation failed, using 0.0")
+
+            # Store metrics for this repeat
+            avg_loss = total_loss / max(1, len(X_train_orig) // batch_size)
+            all_losses.append(avg_loss)
+            all_accuracies.append(accuracy)
+            all_f1_scores.append(f1)
+            all_mAPs.append(mAP)
+
+            logger.info(f"Repeat {repeat_idx + 1}/{self.repeats} - Loss: {avg_loss:.4f}, "
+                       f"Acc: {accuracy:.4f}, F1: {f1:.4f}, mAP: {mAP:.4f}")
+
+        # After all repeats, restore the model from the last training run
+        # (the model is already in the state from the last repeat)
+
+        # Calculate mean and standard deviation across repeats
         metrics = {
-            "loss": avg_loss,
-            "accuracy": accuracy,
-            # "test": [1,2,3],
+            "loss": float(np.mean(all_losses)),
+            "accuracy": float(np.mean(all_accuracies)),
+            "f1_score": float(np.mean(all_f1_scores)),
+            "mAP": float(np.mean(all_mAPs)),
+            "loss_sd": float(np.std(all_losses)) if self.repeats > 1 else 0.0,
+            "accuracy_sd": float(np.std(all_accuracies)) if self.repeats > 1 else 0.0,
+            "f1_score_sd": float(np.std(all_f1_scores)) if self.repeats > 1 else 0.0,
+            "mAP_sd": float(np.std(all_mAPs)) if self.repeats > 1 else 0.0,
             "n_labeled": len(self.labeled_indices),
-            "n_unlabeled": len(self.unlabeled_indices)
+            "n_unlabeled": len(self.unlabeled_indices),
+            "repeats": self.repeats
         }
 
         self.training_history.append(metrics)
-        logger.info(f"Training step complete: Loss={avg_loss:.4f}, Accuracy={accuracy:.4f}")
+        logger.info(f"Training step complete: Loss={metrics['loss']:.4f}±{metrics['loss_sd']:.4f}, "
+                   f"Acc={metrics['accuracy']:.4f}±{metrics['accuracy_sd']:.4f}, "
+                   f"F1={metrics['f1_score']:.4f}±{metrics['f1_score_sd']:.4f}, "
+                   f"mAP={metrics['mAP']:.4f}±{metrics['mAP_sd']:.4f}")
 
         return metrics
     

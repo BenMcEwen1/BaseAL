@@ -5,7 +5,7 @@ export default function Home({ onGetStarted }) {
     <div style={{
       width: '100vw',
       height: '100vh',
-      background: '#0a0a0a',
+      background: '#060014ff',
       display: 'flex',
       flexDirection: 'column',
       position: 'relative',
@@ -25,8 +25,8 @@ export default function Home({ onGetStarted }) {
       }}>
         {/* Logo Space - Left */}
         <div style={{
-          width: '50px',
-          height: '50px',
+          width: '40px',
+          height: '40px',
           // border: '2px dashed #444',
           borderRadius: '8px',
           display: 'flex',
@@ -52,26 +52,6 @@ export default function Home({ onGetStarted }) {
           gap: '20px'
         }}>
           <a
-            href="https://github.com/benmcewen1/BaseAL"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: '#fff',
-              textDecoration: 'none',
-              padding: '10px 20px',
-              background: '#2a2a2a',
-              borderRadius: '6px',
-              fontSize: '14px',
-              fontWeight: '500',
-              transition: 'background 0.2s',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={(e) => e.target.style.background = '#3a3a3a'}
-            onMouseLeave={(e) => e.target.style.background = '#2a2a2a'}
-          >
-            GitHub
-          </a>
-          <a
             href="#docs"
             style={{
               color: '#fff',
@@ -88,6 +68,37 @@ export default function Home({ onGetStarted }) {
             onMouseLeave={(e) => e.target.style.background = '#2a2a2a'}
           >
             Docs
+          </a>
+          <a
+            href="https://github.com/benmcewen1/BaseAL"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: '#fff',
+              textDecoration: 'none',
+              padding: '10px 20px',
+              background: '#2a2a2a',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'background 0.2s',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={(e) => e.target.style.background = '#3a3a3a'}
+            onMouseLeave={(e) => e.target.style.background = '#2a2a2a'}
+          >
+            <img
+              src="/GitHub_Logos/GitHub Logos/SVG/GitHub_Invertocat_Light.svg"
+              alt="GitHub"
+              style={{
+                width: '20px',
+                height: '20px'
+              }}
+            />
+            GitHub
           </a>
         </div>
       </div>
@@ -121,7 +132,7 @@ export default function Home({ onGetStarted }) {
             overflow: 'hidden'
           }}>
             <img
-              src='../public/baseAL_logo.png'
+              src='baseAL_logo.png'
               alt='BaseAL Logo'
               style={{
                 width: '100%',
@@ -146,7 +157,7 @@ export default function Home({ onGetStarted }) {
         {/* Subtitle */}
         <p style={{
           fontSize: '18px',
-          color: '#999',
+          color: 'rgba(255, 255, 255, 0.8)',
           margin: 0,
           textAlign: 'center',
           maxWidth: '600px'

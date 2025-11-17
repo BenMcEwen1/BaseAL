@@ -18,6 +18,8 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [runResults, setRunResults] = useState(null);
+  const [initMode, setInitMode] = useState(null); // null, 'config', or 'manual'
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Add experiment form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -60,11 +62,18 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
       const result = await initializeManager(configPath);
       setManagerSummary(result.summary);
       await loadExperiments();
+      setIsInitialized(true);
     } catch (err) {
-      setError(`Failed to initialize: ${err.message}`);
+      setError(`Failed to initialize from config: ${err.message}. You can manually add experiments instead.`);
     } finally {
       setLoading(false);
     }
+  };
+
+  const initManualMode = () => {
+    setInitMode('manual');
+    setIsInitialized(true);
+    setError(null);
   };
 
   const loadExperiments = async () => {
@@ -244,90 +253,229 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Initialize Manager */}
-      <div style={{
-        background: '#2a2a2a',
-        padding: '16px 20px',
-        borderRadius: '8px',
-        color: 'white'
-      }}>
-        <div style={{ marginBottom: '12px', fontSize: '16px', fontWeight: 'bold' }}>
-          Initialize Manager
-        </div>
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>
-            Config Path:
-          </label>
-          <input
-            type="text"
-            value={configPath}
-            onChange={(e) => setConfigPath(e.target.value)}
-            style={{
-              width: '80%',
-              padding: '10px 0px 10px 8px',
-              borderRadius: '4px',
-              border: '1px solid #444',
-              background: '#1a1a1a',
-              color: 'white',
-              fontSize: '14px'
-            }}
-          />
-        </div>
-        <button
-          onClick={initManager}
-          disabled={loading}
-          style={{
-            width: '100%',
-            padding: '12px',
-            fontSize: '14px',
-            background: loading ? '#666' : '#e24a90',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          {loading ? 'Initializing...' : 'Initialize Manager'}
-        </button>
-      </div>
-
-      {/* Experiments List */}
-      {experiments.length > 0 && (
+      {/* Initialization Selection */}
+      {!isInitialized && (
         <div style={{
           background: '#2a2a2a',
           padding: '16px 20px',
           borderRadius: '8px',
           color: 'white'
         }}>
-          <div style={{ marginBottom: '12px', fontSize: '16px', fontWeight: 'bold' }}>
-            Experiments ({experiments.length})
+          <div style={{ marginBottom: '14px', fontSize: '16px', fontWeight: 'bold' }}>
+            Initialise Manager
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {experiments.map((exp, idx) => (
-              <div
-                key={idx}
-                onClick={() => handleSelectExperiment(idx)}
-                style={{
-                  padding: '12px',
-                  background: selectedExperimentIndex === idx ? '#4ae290' : '#1a1a1a',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  color: selectedExperimentIndex === idx ? '#000' : '#fff'
-                }}
-              >
-                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{exp.name}</div>
-                <div>LR: {exp.learning_rate} | Labeled: {exp.n_labeled}/{exp.n_labeled + exp.n_unlabeled}</div>
+          <div style={{ marginBottom: '14px', fontSize: '14px', color: '#ccc' }}>
+            Choose how you want to set up your experiments:
+          </div>
+
+          {/* Option 1: Load from Config */}
+          {initMode === null || initMode === 'config' ? (
+            <div style={{
+              background: '#1a1a1a',
+              padding: '14px',
+              borderRadius: '4px',
+              marginBottom: '14px'
+            }}>
+              <div style={{ marginBottom: '10px', fontSize: '15px', fontWeight: 'bold' }}>
+                Load from Configuration File
               </div>
-            ))}
+              {initMode === 'config' ? (
+                <>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>
+                      Config Path:
+                    </label>
+                    <input
+                      type="text"
+                      value={configPath}
+                      onChange={(e) => setConfigPath(e.target.value)}
+                      style={{
+                        width: '90%',
+                        padding: '10px 0px 10px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid #444',
+                        background: '#0a0a0a',
+                        color: 'white',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={initManager}
+                      disabled={loading}
+                      style={{
+                        flex: 1,
+                        padding: '14px',
+                        fontSize: '14px',
+                        background: loading ? '#666' : '#e24a90',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {loading ? 'Loading...' : 'Load Config'}
+                    </button>
+                    <button
+                      onClick={() => setInitMode(null)}
+                      disabled={loading}
+                      style={{
+                        padding: '14px 20px',
+                        fontSize: '14px',
+                        background: '#444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: loading ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      Back
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={() => setInitMode('config')}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    fontSize: '14px',
+                    background: '#4a90e2',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Use Config File
+                </button>
+              )}
+            </div>
+          ) : null}
+
+          {/* Option 2: Manual Configuration */}
+          {initMode === null || initMode === 'manual' ? (
+            <div style={{
+              background: '#1a1a1a',
+              padding: '14px',
+              borderRadius: '4px'
+            }}>
+              <div style={{ marginBottom: '10px', fontSize: '15px', fontWeight: 'bold' }}>
+                Manual Configuration
+              </div>
+              {initMode === 'manual' ? (
+                <>
+                  <div style={{ marginBottom: '14px', fontSize: '13px', color: '#aaa' }}>
+                    Start with an empty manager and add experiments manually.
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={initManualMode}
+                      style={{
+                        flex: 1,
+                        padding: '14px',
+                        fontSize: '14px',
+                        background: '#4ae290',
+                        color: '#000',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Start Manual Setup
+                    </button>
+                    <button
+                      onClick={() => setInitMode(null)}
+                      style={{
+                        padding: '14px 20px',
+                        fontSize: '14px',
+                        background: '#444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Back
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={() => setInitMode('manual')}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    fontSize: '14px',
+                    background: '#4a90e2',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Configure Manually
+                </button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Experiments List */}
+      {isInitialized && (
+        <div style={{
+          background: '#2a2a2a',
+          padding: '16px 20px',
+          borderRadius: '8px',
+          color: 'white'
+        }}>
+          <div style={{ marginBottom: '14px', fontSize: '16px', fontWeight: 'bold' }}>
+            Experiments {experiments.length > 0 ? `(${experiments.length})` : ''}
           </div>
+          {experiments.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {experiments.map((exp, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleSelectExperiment(idx)}
+                  style={{
+                    padding: '14px',
+                    background: selectedExperimentIndex === idx ? '#4ae290' : '#1a1a1a',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    color: selectedExperimentIndex === idx ? '#000' : '#fff'
+                  }}
+                >
+                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{exp.name}</div>
+                  <div>LR: {exp.learning_rate} | Labeled: {exp.n_labeled}/{exp.n_labeled + exp.n_unlabeled}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{
+              padding: '14px',
+              background: '#1a1a1a',
+              borderRadius: '4px',
+              fontSize: '13px',
+              color: '#aaa',
+              textAlign: 'center'
+            }}>
+              No experiments yet. Click below to add your first experiment.
+            </div>
+          )}
 
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             style={{
               width: '100%',
-              marginTop: '12px',
+              marginTop: '14px',
               padding: '10px',
               fontSize: '13px',
               background: '#4a90e2',
@@ -342,13 +490,13 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
 
           {showAddForm && (
             <div style={{
-              marginTop: '12px',
-              padding: '12px',
+              marginTop: '14px',
+              padding: '14px',
               background: '#1a1a1a',
               borderRadius: '4px'
             }}>
               <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
                   Name:
                 </label>
                 <input
@@ -356,18 +504,18 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                   value={newExpName}
                   onChange={(e) => setNewExpName(e.target.value)}
                   style={{
-                    width: '100%',
+                    width: '80%',
                     padding: '8px',
                     borderRadius: '4px',
                     border: '1px solid #444',
                     background: '#0a0a0a',
                     color: 'white',
-                    fontSize: '12px'
+                    fontSize: '14px'
                   }}
                 />
               </div>
               <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
                   Learning Rate:
                 </label>
                 <input
@@ -376,13 +524,73 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                   value={newExpLearningRate}
                   onChange={(e) => setNewExpLearningRate(parseFloat(e.target.value))}
                   style={{
-                    width: '100%',
+                    width: '80%',
                     padding: '8px',
                     borderRadius: '4px',
                     border: '1px solid #444',
                     background: '#0a0a0a',
                     color: 'white',
-                    fontSize: '12px'
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                  Uncertainty Quantification:
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  // value={newExpLearningRate}
+                  // onChange={(e) => setNewExpLearningRate(parseFloat(e.target.value))}
+                  style={{
+                    width: '80%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #444',
+                    background: '#0a0a0a',
+                    color: 'white',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                  Sampling Method:
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  // value={newExpLearningRate}
+                  // onChange={(e) => setNewExpLearningRate(parseFloat(e.target.value))}
+                  style={{
+                    width: '80%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #444',
+                    background: '#0a0a0a',
+                    color: 'white',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                  Diversification Method:
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  // value={newExpLearningRate}
+                  // onChange={(e) => setNewExpLearningRate(parseFloat(e.target.value))}
+                  style={{
+                    width: '80%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #444',
+                    background: '#0a0a0a',
+                    color: 'white',
+                    fontSize: '14px'
                   }}
                 />
               </div>
@@ -392,7 +600,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                 style={{
                   width: '100%',
                   padding: '8px',
-                  fontSize: '12px',
+                  fontSize: '14px',
                   background: loading ? '#666' : '#4ae290',
                   color: loading ? 'white' : '#000',
                   border: 'none',
@@ -416,13 +624,13 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
           borderRadius: '8px',
           color: 'white'
         }}>
-          <div style={{ marginBottom: '12px', fontSize: '16px', fontWeight: 'bold' }}>
+          <div style={{ marginBottom: '14px', fontSize: '16px', fontWeight: 'bold' }}>
             Run Manager Cycle
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
                 Samples:
               </label>
               <input
@@ -436,12 +644,12 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                   border: '1px solid #444',
                   background: '#1a1a1a',
                   color: 'white',
-                  fontSize: '12px'
+                  fontSize: '14px'
                 }}
               />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
                 Epochs:
               </label>
               <input
@@ -455,13 +663,13 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                   border: '1px solid #444',
                   background: '#1a1a1a',
                   color: 'white',
-                  fontSize: '12px'
+                  fontSize: '14px'
                 }}
               />
             </div>
           </div>
 
-          <div style={{ marginBottom: '12px' }}>
+          <div style={{ marginBottom: '14px' }}>
             <label style={{ display: 'flex', alignItems: 'center', fontSize: '13px', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -480,7 +688,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
               disabled={isCancelling}
               style={{
                 width: '100%',
-                padding: '12px',
+                padding: '14px',
                 fontSize: '14px',
                 background: isCancelling ? '#999' : '#e24a4a',
                 color: 'white',
@@ -501,7 +709,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                   disabled={loading}
                   style={{
                     flex: 1,
-                    padding: '12px',
+                    padding: '14px',
                     fontSize: '14px',
                     background: loading ? '#666' : '#4ae290',
                     color: loading ? 'white' : '#000',
@@ -520,7 +728,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                   disabled={loading}
                   style={{
                     width: '36px',
-                    padding: '12px 8px',
+                    padding: '14px 8px',
                     fontSize: '14px',
                     background: loading ? '#666' : '#4ae290',
                     color: loading ? 'white' : '#000',
@@ -559,7 +767,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                     onClick={runManagerAll}
                     style={{
                       width: '100%',
-                      padding: '12px',
+                      padding: '14px',
                       fontSize: '14px',
                       background: 'transparent',
                       color: '#000',
@@ -569,7 +777,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                       fontWeight: 'normal',
                       transition: 'background 0.2s'
                     }}
-                    onMouseEnter={(e) => e.target.style.background = '#2a2a2a'}
+                    // onMouseEnter={(e) => e.target.style.background = '#2a2a2a'}
                     onMouseLeave={(e) => e.target.style.background = 'transparent'}
                   >
                     Run All Cycles
@@ -580,7 +788,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
           )}
 
           {runResults && (
-            <div style={{ marginTop: '12px', fontSize: '12px' }}>
+            <div style={{ marginTop: '14px', fontSize: '14px' }}>
               <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Last Cycle Results:</div>
               {Object.entries(runResults).map(([name, metrics]) => (
                 <div key={name} style={{ marginBottom: '4px', padding: '6px', background: '#1a1a1a', borderRadius: '4px' }}>
@@ -605,7 +813,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
           onClick={saveResults}
           disabled={loading}
           style={{
-            padding: '12px',
+            padding: '14px',
             fontSize: '14px',
             background: loading ? '#666' : '#4a90e2',
             color: 'white',
@@ -625,7 +833,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
           padding: '10px',
           background: '#ff4444',
           borderRadius: '4px',
-          fontSize: '12px',
+          fontSize: '14px',
           color: 'white'
         }}>
           {error}

@@ -491,7 +491,8 @@ def list_manager_experiments():
                 "learning_rate": learner.learning_rate,
                 "model_name": learner.model_name,
                 "n_labeled": len(learner.labeled_indices),
-                "n_unlabeled": len(learner.unlabeled_indices)
+                "n_unlabeled": len(learner.unlabeled_indices),
+                "training_history": learner.training_history
             }
             for i, (learner, name) in enumerate(zip(manager.experiments, manager.experiment_names))
         ]

@@ -3,21 +3,25 @@
 
 experiments:
   # Experiment 1: Low learning rate
-  - name: low_lr_experiment
+  - name: Margin
     embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
     annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
     model_name: birdnet
     dataset_name: esc50
     hidden_dim: null  # Will default to input_dim
-    learning_rate: 0.0001  # Low learning rate
+    sampling_strategy: margin
+    learning_rate: 0.01  # Low learning rate
+    repeats: 2
     device: cpu
 
   # Experiment 2: Higher learning rate
-  - name: high_lr_experiment
+  - name: Random
     embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
     annotations_path: results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
     model_name: birdnet
     dataset_name: esc50
     hidden_dim: null  # Will default to input_dim
-    learning_rate: 0.001  # 10x higher learning rate
+    sampling_strategy: random
+    learning_rate: 0.01  # 10x higher learning rate
+    repeats: 2
     device: cpu

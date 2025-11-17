@@ -1,164 +1,156 @@
-import torch
+"""
+Sampling strategies for active learning
+"""
+from abc import ABC, abstractmethod
 import numpy as np
-import matplotlib.pyplot as plt
-import torch.nn.functional as F
-from sklearn.cluster import AgglomerativeClustering
-from scipy.spatial.distance import cdist
+from typing import List, Optional
 
 
-class Sampler:
-    def __init__(self, x: torch.Tensor, y: torch.Tensor, samples_num: int):
-        self.samples_num = samples_num
-        self.clusters = None
-        self.x = x
-        self.y = y
+class SamplingStrategy(ABC):
+    """Base class for all sampling strategies"""
 
-    def binaryEntropy(self, outputs: torch.Tensor, eps=1e-8) -> torch.Tensor:
+    def __init__(self, n_samples: int = 20):
         """
-        Compute the maximum binary entropy across all classes
-        """
-        entropy = -(outputs * torch.log2(outputs + eps) + (1 - outputs) * torch.log2(1 - outputs + eps))
-        entropy = torch.nan_to_num(entropy) 
-        per_sample_entropy = torch.max(entropy, axis=1)[0] 
-        return per_sample_entropy
-        
-    def ratioMax(self, outputs:torch.tensor):
-        uncertainty_scores = (0.5 - torch.abs(outputs - 0.5)) / (0.5 + torch.abs(outputs - 0.5))
-        max_uncertainty = torch.max(uncertainty_scores, axis=1)[0]
-        return max_uncertainty
-    
-    def clusterEntropy(self, confidence_scores:torch.tensor, subsample:float = 0.2) -> list:
-        """
-        Compute the Hierachical Agglomerative Clustering for the training embeddings.
+        Initialize sampling strategy
 
         Args:
-            confidence (tensor): Tensor containing confidence scores of all embeddings.
-            subsample (float): Percentage of embeddings to use for cluster generation. Defaults to 0.1. Other samples with be assigned.
-        Returns:
-            list: List of selected indices.
+            n_samples: Number of samples to select per iteration
         """
+        self.n_samples = n_samples
 
-        if self.clusters is None:
-            print("Generating clusters... ", end="", flush=True)
-            subset = self.x[np.random.choice(self.x.shape[0], int(subsample*self.x.shape[0]), replace=False)]
-            agglomerativeClustering = AgglomerativeClustering(n_clusters=self.samples_num, distance_threshold=None, linkage='ward')
-            clusters_indices = agglomerativeClustering.fit_predict(subset)
-
-            # Compute cluster centroids
-            unique_clusters = np.unique(clusters_indices)
-            cluster_centroids = np.array([subset[clusters_indices == c].mean(axis=0) for c in unique_clusters])
-
-            # Assign to clusters by comparing distance to cluster centroids
-            distances = cdist(self.x, cluster_centroids)
-            assigned_clusters = np.argmin(distances, axis=1)
-
-            self.clusters = {}
-            for cluster_idx in range(max(clusters_indices)+1):
-                indices = np.where(assigned_clusters == cluster_idx)[0]
-                self.clusters[cluster_idx] = indices
-            print("Done")
-
-        clusters_scores = {}
-        for cluster_idx, cluster_indices in self.clusters.items():
-            scores = self.binaryEntropy(confidence_scores[cluster_indices])
-            clusters_scores[cluster_idx] = scores
-
-        selected = []
-        for cluster_idx, scores in clusters_scores.items():
-            idx = torch.argmax(scores).item()
-            selected.append(self.clusters[cluster_idx][idx])
-            clusters_scores[cluster_idx][idx] = 0
-
-            if len(selected) >= self.samples_num:
-                break
-        return selected
-    
-    def stratified(self, model, sorted_indices: dict, method="binary", indices=None, weights=None):
+    @abstractmethod
+    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
+               embeddings: Optional[np.ndarray] = None, model = None) -> List[int]:
         """
-        Perform stratified sampling according to the strata given in the input.
+        Select samples for annotation
 
         Args:
-            model (nn.Module): Model to be used for computing the uncertainty.
-            sorted_indices (dict): Dictionary where the keys are the strata and the values are the sorted indices of the embeddings in that strata.
-            method (str): Method to be used to compute the uncertainty. Defaults to "binary".
-            indices (list): List of indices of the embeddings to be used for sampling. Defaults to None.
+            unlabeled_indices: List/array of unlabeled sample indices
+            predictions: Optional numpy array of model predictions (N x num_classes)
+            embeddings: Optional numpy array of embeddings
+            model: Optional reference to the model itself
 
         Returns:
-            dict: Dictionary with the selected indices for each strata.
+            List of selected indices
         """
+        pass
 
-        sorted_embeddings = {key: self.x[idx] for key, idx in sorted_indices.items()}
-        strata_idx = {}
 
-        # Compute per stratum sample count
-        n_samples = self.samples_num // len(sorted_embeddings.keys())
-        print(weights)
-        if weights is not None:
-            weighted_samples = torch.multiply(weights, self.samples_num)
-            
+class RandomSampling(SamplingStrategy):
+    """Random sampling strategy - only needs indices"""
 
-        for j, (key, v) in enumerate(sorted_embeddings.items()):
-            if weights is not None:
-                n_samples = torch.ceil(weighted_samples[j])
-
-            if indices:
-                selected = [i for i, val in enumerate(sorted_indices[key]) if val in indices]
-            else:
-                selected = None
-        
-            idx = self.resample(model, embeddings=v, method=method, indices=selected, override=int(n_samples)) # Provides local indices (per strata)
-            mapped = list(np.array(sorted_indices[key])[idx])
-            strata_idx[key] = mapped
-        return strata_idx
-
-    def resample(self, model, method="random", embeddings=None, indices=None, removal=True, override:int=None):
+    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
+               embeddings: Optional[np.ndarray] = None, model = None) -> List[int]:
         """
-        Resample the embeddings according to the given method.
+        Randomly select samples from unlabeled pool
 
         Args:
-            model (nn.Module): Model to be used for computing the uncertainty.
-            method (str): Method to be used to compute the uncertainty. Defaults to "binary".
-            embeddings (tensor): Tensor containing embeddings to be resampled. Defaults to None.
-            indices (list): List of indices of the embeddings to be used for sampling. Defaults to None.
-            removal (bool): If True, the sampled embeddings will be removed from the original embeddings. Defaults to True.
-            override (int): Override the number of samples. Defaults to None.
+            unlabeled_indices: List of unlabeled sample indices
+            predictions: Not used
+            embeddings: Not used
+            model: Not used
 
         Returns:
-            list: List of indices of the resampled embeddings.
+            List of randomly selected indices
         """
-        
-        samples_num = self.samples_num if override == None else override
-        x = self.x if embeddings == None else embeddings
-        
-        model.eval()
-        outputs = model(x)
-        confidence_scores = F.sigmoid(outputs)
+        n_samples = min(self.n_samples, len(unlabeled_indices))
+        return np.random.choice(unlabeled_indices, size=n_samples, replace=False).tolist()
 
-        # Compute uncertainty
-        if method == "binary":
-            scores = self.binaryEntropy(confidence_scores)
-        elif method == "ratio_max":
-            scores = self.ratioMax(confidence_scores)
-        elif method == "confidence":
-            scores = torch.max(confidence_scores, dim=1).values
-        elif method == "random":
-            idx = np.random.choice(len(x), size=samples_num, replace=False)
-            return idx
-        elif method == "cluster":
-            idx = self.clusterEntropy(confidence_scores)
-            return idx
-        else:
-            raise Exception("Unknown uncertainty quantification method")
-        
-        # Return top k uncertain samples
-        if indices:
-            scores[indices] = 0
 
-        if len(scores) > samples_num:
-            _, idx = torch.topk(scores, k=samples_num)
-        else: 
-            idx = []
-            raise Warning("insufficient samples left in strata")
-        
-        return idx.tolist()
-    
+class EntropySampling(SamplingStrategy):
+    """Entropy-based sampling - selects samples with highest prediction entropy"""
+
+    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
+               embeddings: Optional[np.ndarray] = None, model = None) -> List[int]:
+        """
+        Select samples with highest prediction entropy
+
+        Args:
+            unlabeled_indices: List of unlabeled sample indices
+            predictions: Model predictions (N x num_classes) - REQUIRED
+            embeddings: Not used
+            model: Not used
+
+        Returns:
+            List of selected indices with highest entropy
+        """
+        if predictions is None:
+            raise ValueError("EntropySampling requires predictions")
+
+        # Calculate entropy for unlabeled samples only
+        unlabeled_preds = predictions[unlabeled_indices]
+
+        # Compute entropy: -sum(p * log(p))
+        epsilon = 1e-10  # Avoid log(0)
+        entropy = -np.sum(unlabeled_preds * np.log(unlabeled_preds + epsilon), axis=1)
+
+        # Select samples with highest entropy
+        n_samples = min(self.n_samples, len(unlabeled_indices))
+        top_indices = np.argsort(entropy)[-n_samples:]
+
+        return np.array(unlabeled_indices)[top_indices].tolist()
+
+
+class UncertaintySampling(SamplingStrategy):
+    """Uncertainty sampling - selects samples with lowest maximum probability (least confident)"""
+
+    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
+               embeddings: Optional[np.ndarray] = None, model = None) -> List[int]:
+        """
+        Select samples with lowest confidence (lowest max probability)
+
+        Args:
+            unlabeled_indices: List of unlabeled sample indices
+            predictions: Model predictions (N x num_classes) - REQUIRED
+            embeddings: Not used
+            model: Not used
+
+        Returns:
+            List of selected indices with lowest confidence
+        """
+        if predictions is None:
+            raise ValueError("UncertaintySampling requires predictions")
+
+        unlabeled_preds = predictions[unlabeled_indices]
+        max_probs = np.max(unlabeled_preds, axis=1)
+
+        # Select samples with lowest maximum probability (most uncertain)
+        n_samples = min(self.n_samples, len(unlabeled_indices))
+        top_indices = np.argsort(max_probs)[:n_samples]  # Lowest confidence first
+
+        return np.array(unlabeled_indices)[top_indices].tolist()
+
+
+class MarginSampling(SamplingStrategy):
+    """Margin sampling - selects samples with smallest margin between top two predictions"""
+
+    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
+               embeddings: Optional[np.ndarray] = None, model = None) -> List[int]:
+        """
+        Select samples with smallest margin between top two class probabilities
+
+        Args:
+            unlabeled_indices: List of unlabeled sample indices
+            predictions: Model predictions (N x num_classes) - REQUIRED
+            embeddings: Not used
+            model: Not used
+
+        Returns:
+            List of selected indices with smallest margins
+        """
+        if predictions is None:
+            raise ValueError("MarginSampling requires predictions")
+
+        unlabeled_preds = predictions[unlabeled_indices]
+
+        # Sort predictions for each sample to get top 2
+        sorted_preds = np.sort(unlabeled_preds, axis=1)
+
+        # Calculate margin: difference between top two predictions
+        margins = sorted_preds[:, -1] - sorted_preds[:, -2]
+
+        # Select samples with smallest margins (most ambiguous)
+        n_samples = min(self.n_samples, len(unlabeled_indices))
+        top_indices = np.argsort(margins)[:n_samples]  # Smallest margins first
+
+        return np.array(unlabeled_indices)[top_indices].tolist()

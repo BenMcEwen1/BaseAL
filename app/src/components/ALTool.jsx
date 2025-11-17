@@ -14,7 +14,8 @@ import {
   sampleNextBatch,
   trainModel,
   getActiveLearningEmbeddings,
-  getActiveLearningState
+  getActiveLearningState,
+  getManagerExperiments
 } from '../utils/apiClient';
 
 export default function ALTool() {
@@ -34,11 +35,12 @@ export default function ALTool() {
   const [labels, setLabels] = useState(null);
   const [labelNames, setLabelNames] = useState(null);
   const [labeledMask, setLabeledMask] = useState(null);
-  const [activeTab, setActiveTab] = useState('controls');
+  const [activeTab, setActiveTab] = useState('manager');
   const [isTrainingAll, setIsTrainingAll] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const cancelTrainingRef = useRef(false);
   const [isAnalyticsPanelOpen, setIsAnalyticsPanelOpen] = useState(false);
+  const [experimentsData, setExperimentsData] = useState([]);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -57,6 +59,13 @@ export default function ALTool() {
       loadModels();
     }
   }, [useAPI]);
+
+  // Load experiments data when analytics panel is opened
+  useEffect(() => {
+    if (isAnalyticsPanelOpen) {
+      loadExperimentsData();
+    }
+  }, [isAnalyticsPanelOpen]);
 
   useEffect(() => {
     const loadDatasets = async () => {
@@ -205,12 +214,21 @@ export default function ALTool() {
     }
   };
 
+  const loadExperimentsData = async () => {
+    try {
+      const result = await getManagerExperiments();
+      setExperimentsData(result.experiments || []);
+    } catch (err) {
+      console.error('Failed to load experiments data:', err);
+    }
+  };
+
   return (
     <div style={{
       width: '100vw',
       height: '100vh',
       overflow: 'hidden',
-      background: '#0a0a0a',
+      background: '#060014ff',
       display: 'flex'
     }}>
       {/* Left Panel */}
@@ -227,9 +245,9 @@ export default function ALTool() {
         <div style={{
           display: 'flex',
           padding: '15px 20px',
-          background: '#0a0a0a'
+          background: '#060014ff'
         }}>
-          <button
+          {/* <button
             onClick={() => setActiveTab('controls')}
             style={{
               flex: 1,
@@ -244,22 +262,6 @@ export default function ALTool() {
             }}
           >
             Controls
-          </button>
-          {/* <button
-            onClick={() => setActiveTab('analytics')}
-            style={{
-              flex: 1,
-              padding: '16px',
-              background: activeTab === 'analytics' ? '#2a2a2a' : 'transparent',
-              color: 'white',
-              border: 'none',
-              borderBottom: activeTab === 'analytics' ? '2px solid #4ae290' : '2px solid transparent',
-              cursor: 'pointer',
-              fontSize: '16px',
-              fontWeight: 'bold'
-            }}
-          >
-            Analytics
           </button> */}
           <button
             onClick={() => setActiveTab('manager')}
@@ -277,6 +279,22 @@ export default function ALTool() {
           >
             Manager
           </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            style={{
+              flex: 1,
+              padding: '16px',
+              background: activeTab === 'analytics' ? '#2a2a2a' : 'transparent',
+              color: 'white',
+              border: 'none',
+              borderBottom: activeTab === 'analytics' ? '2px solid #4ae290' : '2px solid transparent',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}
+          >
+            Settings
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -288,7 +306,7 @@ export default function ALTool() {
           flexDirection: 'column',
           gap: '20px'
         }}>
-          {activeTab === 'controls' && (
+          {/* {activeTab === 'controls' && (
             <>
               {useAPI && (
                 <div style={{
@@ -482,7 +500,7 @@ export default function ALTool() {
                 </div>
               )}
             </>
-          )}
+          )} */}
 
           {/* {activeTab === 'analytics' && (
             <>
@@ -536,6 +554,8 @@ export default function ALTool() {
                   setTrainingMetrics(state.training_history && state.training_history.length > 0
                     ? state.training_history[state.training_history.length - 1]
                     : null);
+                  // Load all experiments data for comparison chart
+                  await loadExperimentsData();
                 } catch (err) {
                   console.error('Failed to fetch updated state:', err);
                 }
@@ -581,6 +601,7 @@ export default function ALTool() {
           isOpen={isAnalyticsPanelOpen}
           onClose={() => setIsAnalyticsPanelOpen(false)}
           trainingHistory={alState?.training_history}
+          experimentsData={experimentsData}
         />
 
         {/* 3D Canvas */}

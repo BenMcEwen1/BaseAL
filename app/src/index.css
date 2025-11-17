@@ -66,6 +66,28 @@ button:focus-visible {
   display: none;  /* Chrome, Safari, Opera */
 }
 
+/* Hide the scrollbar track (background) */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Hide the arrow buttons */
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Style just the scrollbar thumb (the draggable bar) */
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+}
+
+/* Optional: set scrollbar width */
+::-webkit-scrollbar {
+  width: 8px; /* for vertical */
+  height: 8px; /* for horizontal */
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;

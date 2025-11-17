@@ -1,6 +1,10 @@
+import React, { useState } from 'react';
 import Analytics from './Analytics';
+import ComparisonChart from './ComparisonChart';
 
-export default function AnalyticsV2({ isOpen, onClose, trainingHistory }) {
+export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experimentsData }) {
+    const [selectedMetric, setSelectedMetric] = useState('accuracy');
+
     if (!isOpen) return null;
 
     return (
@@ -39,7 +43,7 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory }) {
                 onMouseEnter={(e) => e.target.style.background = '#ff5555'}
                 onMouseLeave={(e) => e.target.style.background = '#e24a4a'}
             >
-                Close Analytics
+                Close
             </button>
 
             {/* Title */}
@@ -50,7 +54,7 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory }) {
                 marginBottom: '30px',
                 marginTop: '10px'
             }}>
-                Analytics Dashboard
+                Dashboard
             </div>
 
             {/* Charts Container */}
@@ -62,20 +66,20 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory }) {
             }}>
                 {trainingHistory && trainingHistory.length > 0 ? (
                     <>
-                        <Analytics data={trainingHistory} />
-                        <Analytics data={trainingHistory} />
-                        {/* Additional charts can be added here */}
-                        <div style={{
-                            background: '#2a2a2a',
-                            padding: '40px',
-                            borderRadius: '8px',
-                            color: '#666',
-                            textAlign: 'center',
-                            fontSize: '14px',
-                            border: '2px dashed #444'
-                        }}>
-                            Additional analytics will be displayed here
-                        </div>
+                        {/* Comparison Chart Across All Experiments */}
+                        {experimentsData && experimentsData.length > 1 && (
+                        <ComparisonChart
+                            experimentsData={experimentsData}
+                            selectedMetric={selectedMetric}
+                        />
+                        )}
+
+                        {/* Single Experiment Charts */}
+                        <Analytics
+                            data={trainingHistory}
+                            selectedMetric={selectedMetric}
+                            onMetricChange={setSelectedMetric}
+                        />
                     </>
                 ) : (
                     <div style={{
