@@ -28,7 +28,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
 
   // Manager run settings
   const [runSettings, setRunSettings] = useState({
-    n_samples: 10,
+    n_samples: 50,
     epochs: 5,
     batch_size: 8,
     parallel: false

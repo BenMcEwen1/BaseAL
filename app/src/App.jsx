@@ -3,14 +3,24 @@ import Home from './components/Home';
 import ALTool from './components/ALTool';
 import Axes from './components/Axes'
 import AnalyticsV2 from './components/AnalyticsV2';
+import Docs from './components/Docs';
 
 export default function App() {
   const alToolRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const [axesOpacity, setAxesOpacity] = useState(0);
+  const [docsOpen, setDocsOpen] = useState(false);
 
   const handleGetStarted = () => {
     alToolRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleDocsOpen = () => {
+    setDocsOpen(true);
+  };
+
+  const handleDocsClose = () => {
+    setDocsOpen(false);
   };
 
   useEffect(() => {
@@ -67,14 +77,16 @@ export default function App() {
 
       {/* Home Page Section */}
       <div style={{ scrollSnapAlign: 'start' }}>
-        <Home onGetStarted={handleGetStarted} />
-        
+        <Home onGetStarted={handleGetStarted} onDocsClick={handleDocsOpen} />
       </div>
 
       {/* AL Tool Section */}
       <div ref={alToolRef} style={{ scrollSnapAlign: 'start' }}>
         <ALTool />
       </div>
+
+      {/* Docs Overlay */}
+      <Docs isOpen={docsOpen} onClose={handleDocsClose} />
     </div>
   );
 }

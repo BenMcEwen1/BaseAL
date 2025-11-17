@@ -1,6 +1,6 @@
-import React from 'react';
+import Promote from "./Promote";
 
-export default function Home({ onGetStarted }) {
+export default function Home({ onGetStarted, onDocsClick }) {
   return (
     <div style={{
       width: '100vw',
@@ -11,6 +11,7 @@ export default function Home({ onGetStarted }) {
       position: 'relative',
       overflow: 'hidden'
     }}>
+      <Promote/>
       {/* Top Navigation Bar */}
       <div style={{
         display: 'flex',
@@ -51,13 +52,14 @@ export default function Home({ onGetStarted }) {
           display: 'flex',
           gap: '20px'
         }}>
-          <a
-            href="#docs"
+          <button
+            onClick={onDocsClick}
             style={{
               color: '#fff',
-              textDecoding: 'none',
+              textDecoration: 'none',
               padding: '10px 20px',
               background: '#2a2a2a',
+              border: 'none',
               borderRadius: '6px',
               fontSize: '14px',
               fontWeight: '500',
@@ -68,7 +70,7 @@ export default function Home({ onGetStarted }) {
             onMouseLeave={(e) => e.target.style.background = '#2a2a2a'}
           >
             Docs
-          </a>
+          </button>
           <a
             href="https://github.com/benmcewen1/BaseAL"
             target="_blank"
