@@ -2,17 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import PointCluster from './PointCluster';
-import Analytics from './Analytics';
+// import Analytics from './Analytics';
 import ManagerPanel from './ManagerPanel';
 import AnalyticsV2 from './AnalyticsV2';
 import {
   fetchModels,
   fetchDatasets,
-  fetchEmbeddingSteps,
-  convertStepsToPointFormat,
-  initializeActiveLearning,
-  sampleNextBatch,
-  trainModel,
+  // fetchEmbeddingSteps,
+  // convertStepsToPointFormat,
+  // initializeActiveLearning,
+  // sampleNextBatch,
+  // trainModel,
   getActiveLearningEmbeddings,
   getActiveLearningState,
   getManagerExperiments
@@ -28,20 +28,24 @@ export default function ALTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [useAPI, setUseAPI] = useState(true);
-  const [useActiveLearning, setUseActiveLearning] = useState(true);
+  // const [useActiveLearning, setUseActiveLearning] = useState(true);
   const [alState, setAlState] = useState(null);
   const [trainingMetrics, setTrainingMetrics] = useState(null);
-  const [n_samples, setSamples] = useState(10);
+  // const [n_samples, setSamples] = useState(10);
   const [labels, setLabels] = useState(null);
   const [labelNames, setLabelNames] = useState(null);
   const [labeledMask, setLabeledMask] = useState(null);
   const [uncertainties, setUncertainties] = useState(null);
   const [activeTab, setActiveTab] = useState('manager');
-  const [isTrainingAll, setIsTrainingAll] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const cancelTrainingRef = useRef(false);
+  // const [isTrainingAll, setIsTrainingAll] = useState(false);
+  // const [isCancelling, setIsCancelling] = useState(false);
+  // const cancelTrainingRef = useRef(false);
   const [isAnalyticsPanelOpen, setIsAnalyticsPanelOpen] = useState(false);
   const [experimentsData, setExperimentsData] = useState([]);
+
+  // Visualization settings
+  const [dimensionReduction, setDimensionReduction] = useState('UMAP');
+  const [projection, setProjection] = useState('euclidean');
 
   useEffect(() => {
     const loadModels = async () => {
@@ -88,133 +92,133 @@ export default function ALTool() {
     }
   }, [selectedModel, useAPI]);
 
-  const loadEmbeddingsFromAPI = async () => {
-    if (!selectedModel || !selectedDataset) {
-      setError('Please select a model and dataset');
-      return;
-    }
+  // const loadEmbeddingsFromAPI = async () => {
+  //   if (!selectedModel || !selectedDataset) {
+  //     setError('Please select a model and dataset');
+  //     return;
+  //   }
 
-    setLoading(true);
-    setError(null);
+  //   setLoading(true);
+  //   setError(null);
 
-    try {
-      const stepsData = await fetchEmbeddingSteps(selectedModel, selectedDataset, 4);
-      const formattedSteps = convertStepsToPointFormat(stepsData);
-      setEmbeddingSteps(formattedSteps);
-      setStep(0);
-    } catch (err) {
-      setError(`Failed to load embeddings: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //   try {
+  //     const stepsData = await fetchEmbeddingSteps(selectedModel, selectedDataset, 4);
+  //     const formattedSteps = convertStepsToPointFormat(stepsData);
+  //     setEmbeddingSteps(formattedSteps);
+  //     setStep(0);
+  //   } catch (err) {
+  //     setError(`Failed to load embeddings: ${err.message}`);
+  //     console.error(err);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  const initializeAL = async () => {
-    if (!selectedModel || !selectedDataset) {
-      setError('Please select a model and dataset');
-      return;
-    }
+  // const initializeAL = async () => {
+  //   if (!selectedModel || !selectedDataset) {
+  //     setError('Please select a model and dataset');
+  //     return;
+  //   }
 
-    setLoading(true);
-    setError(null);
+  //   setLoading(true);
+  //   setError(null);
 
-    try {
-      const result = await initializeActiveLearning(selectedModel, selectedDataset);
-      setAlState(result.state);
-      setTrainingMetrics(null);
-      await updateEmbeddings();
-    } catch (err) {
-      setError(`Failed to initialize: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //   try {
+  //     const result = await initializeActiveLearning(selectedModel, selectedDataset);
+  //     setAlState(result.state);
+  //     setTrainingMetrics(null);
+  //     await updateEmbeddings();
+  //   } catch (err) {
+  //     setError(`Failed to initialize: ${err.message}`);
+  //     console.error(err);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  const sampleAndTrain = async () => {
-    setLoading(true);
-    setError(null);
+  // const sampleAndTrain = async () => {
+  //   setLoading(true);
+  //   setError(null);
 
-    try {
-      const sampleResult = await sampleNextBatch(n_samples);
-      setAlState(sampleResult.state);
+  //   try {
+  //     const sampleResult = await sampleNextBatch(n_samples);
+  //     setAlState(sampleResult.state);
 
-      const trainResult = await trainModel(10, 8);
-      setAlState(trainResult.state);
-      setTrainingMetrics(trainResult.metrics);
+  //     const trainResult = await trainModel(10, 8);
+  //     setAlState(trainResult.state);
+  //     setTrainingMetrics(trainResult.metrics);
 
-      await updateEmbeddings();
-    } catch (err) {
-      setError(`Failed to sample and train: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     await updateEmbeddings();
+  //   } catch (err) {
+  //     setError(`Failed to sample and train: ${err.message}`);
+  //     console.error(err);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  const trainAll = async () => {
-    setLoading(true);
-    setIsTrainingAll(true);
-    setIsCancelling(false);
-    setError(null);
-    cancelTrainingRef.current = false;
+  // const trainAll = async () => {
+  //   setLoading(true);
+  //   setIsTrainingAll(true);
+  //   setIsCancelling(false);
+  //   setError(null);
+  //   cancelTrainingRef.current = false;
 
-    try {
-      let currentState = alState;
+  //   try {
+  //     let currentState = alState;
 
-      while (currentState.n_unlabeled > 0) {
-        if (cancelTrainingRef.current) {
-          console.log('Training cancelled by user');
-          break;
-        }
+  //     while (currentState.n_unlabeled > 0) {
+  //       if (cancelTrainingRef.current) {
+  //         console.log('Training cancelled by user');
+  //         break;
+  //       }
 
-        console.log(`Unlabeled samples remaining: ${currentState.n_unlabeled}`);
+  //       console.log(`Unlabeled samples remaining: ${currentState.n_unlabeled}`);
 
-        const sampleResult = await sampleNextBatch(n_samples);
-        currentState = sampleResult.state;
-        setAlState(currentState);
+  //       const sampleResult = await sampleNextBatch(n_samples);
+  //       currentState = sampleResult.state;
+  //       setAlState(currentState);
 
-        const trainResult = await trainModel(10, 8);
-        currentState = trainResult.state;
-        setAlState(currentState);
-        setTrainingMetrics(trainResult.metrics);
+  //       const trainResult = await trainModel(10, 8);
+  //       currentState = trainResult.state;
+  //       setAlState(currentState);
+  //       setTrainingMetrics(trainResult.metrics);
 
-        await updateEmbeddings();
-      }
+  //       await updateEmbeddings();
+  //     }
 
-      if (!cancelTrainingRef.current) {
-        console.log('Training completed - all samples labeled');
-      }
-    } catch (err) {
-      setError(`Failed to sample and train: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-      setIsTrainingAll(false);
-      setIsCancelling(false);
-      cancelTrainingRef.current = false;
-    }
-  };
+  //     if (!cancelTrainingRef.current) {
+  //       console.log('Training completed - all samples labeled');
+  //     }
+  //   } catch (err) {
+  //     setError(`Failed to sample and train: ${err.message}`);
+  //     console.error(err);
+  //   } finally {
+  //     setLoading(false);
+  //     setIsTrainingAll(false);
+  //     setIsCancelling(false);
+  //     cancelTrainingRef.current = false;
+  //   }
+  // };
 
-  const cancelTraining = () => {
-    cancelTrainingRef.current = true;
-    setIsCancelling(true);
-  };
+  // const cancelTraining = () => {
+  //   cancelTrainingRef.current = true;
+  //   setIsCancelling(true);
+  // };
 
-  const updateEmbeddings = async () => {
-    try {
-      const data = await getActiveLearningEmbeddings();
-      setEmbeddingSteps([data.coordinates]);
-      setLabels(data.labels);
-      setLabelNames(data.label_names);
-      setLabeledMask(data.labeled_mask);
-      setUncertainties(data.uncertainties);
-      setStep(0);
-    } catch (err) {
-      console.error('Failed to update embeddings:', err);
-    }
-  };
+  // const updateEmbeddings = async () => {
+  //   try {
+  //     const data = await getActiveLearningEmbeddings({ dimensionReduction, projection });
+  //     setEmbeddingSteps([data.coordinates]);
+  //     setLabels(data.labels);
+  //     setLabelNames(data.label_names);
+  //     setLabeledMask(data.labeled_mask);
+  //     setUncertainties(data.uncertainties);
+  //     setStep(0);
+  //   } catch (err) {
+  //     console.error('Failed to update embeddings:', err);
+  //   }
+  // };
 
   const loadExperimentsData = async () => {
     try {
@@ -222,6 +226,26 @@ export default function ALTool() {
       setExperimentsData(result.experiments || []);
     } catch (err) {
       console.error('Failed to load experiments data:', err);
+    }
+  };
+
+  // Regenerate embeddings with current settings
+  const regenerateEmbeddings = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getActiveLearningEmbeddings({ dimensionReduction, projection });
+      setEmbeddingSteps([data.coordinates]);
+      setLabels(data.labels);
+      setLabelNames(data.label_names);
+      setLabeledMask(data.labeled_mask);
+      setUncertainties(data.uncertainties);
+      setStep(0);
+    } catch (err) {
+      setError(`Failed to regenerate embeddings: ${err.message}`);
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -308,226 +332,104 @@ export default function ALTool() {
           flexDirection: 'column',
           gap: '20px'
         }}>
-          {/* {activeTab === 'controls' && (
-            <>
-              {useAPI && (
+          {/* Settings Tab */}
+          <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.2)',
+              padding: '16px 20px',
+              borderRadius: '8px',
+              color: 'white'
+            }}>
+              <div style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 'bold' }}>
+                Visualization Settings
+              </div>
+
+              {/* Dimension Reduction Method */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+                  Dimension Reduction Method:
+                </label>
+                <select
+                  value={dimensionReduction}
+                  onChange={(e) => setDimensionReduction(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '4px',
+                    border: '1px solid #444',
+                    background: 'rgba(0, 0, 0, 0.1)',
+                    color: 'white',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="UMAP">UMAP</option>
+                  <option value="PCA">PCA</option>
+                </select>
+              </div>
+
+              {/* Projection Method */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+                  Projection Method:
+                </label>
+                <select
+                  value={projection}
+                  onChange={(e) => setProjection(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '4px',
+                    border: '1px solid #444',
+                    background: 'rgba(0, 0, 0, 0.1)',
+                    color: 'white',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="euclidean">Euclidean</option>
+                  <option value="spherical">Spherical</option>
+                  <option value="torus">Torus</option>
+                  <option value="hyperbolic">hyperbolic</option>
+                </select>
+              </div>
+
+              {/* Regenerate Button */}
+              <button
+                onClick={regenerateEmbeddings}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  fontSize: '14px',
+                  background: loading ? '#666' : '#4ae290',
+                  color: loading ? 'white' : '#000',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                {loading ? 'Regenerating...' : 'Regenerate Cluster'}
+              </button>
+
+              {error && (
                 <div style={{
-                  background: '#2a2a2a',
-                  padding: '16px 20px',
-                  borderRadius: '8px',
-                  color: 'white'
+                  marginTop: '12px',
+                  padding: '10px',
+                  background: '#ff4444',
+                  borderRadius: '4px',
+                  fontSize: '12px'
                 }}>
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                      Model:
-                    </label>
-                    <select
-                      value={selectedModel || ''}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        borderRadius: '4px',
-                        border: '1px solid #444',
-                        background: '#1a1a1a',
-                        color: 'white',
-                        fontSize: '14px'
-                      }}
-                    >
-                      {models.map(model => (
-                        <option key={model.name} value={model.name}>
-                          {model.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                      Dataset:
-                    </label>
-                    <select
-                      value={selectedDataset || ''}
-                      onChange={(e) => setSelectedDataset(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        borderRadius: '4px',
-                        border: '1px solid #444',
-                        background: '#1a1a1a',
-                        color: 'white',
-                        fontSize: '14px'
-                      }}
-                    >
-                      {datasets.map(dataset => (
-                        <option key={dataset.name} value={dataset.name}>
-                          {dataset.name} ({dataset.file_count} files)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                      Sample number (n):
-                    </label>
-                    <input
-                      type='number'
-                      value={n_samples}
-                      onChange={(e) => setSamples(e.target.value)}
-                      style={{
-                        padding: '10px',
-                        borderRadius: '4px',
-                        border: '1px solid #444',
-                        background: '#1a1a1a',
-                        color: 'white',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-
-                  <button
-                    onClick={useActiveLearning ? initializeAL : loadEmbeddingsFromAPI}
-                    disabled={loading || !selectedModel || !selectedDataset}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      fontSize: '14px',
-                      background: loading ? '#666' : (useActiveLearning ? '#e24a90' : '#4a90e2'),
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    {loading ? 'Loading...' : (useActiveLearning ? 'Initialize Active Learning' : 'Load Embeddings')}
-                  </button>
-
-                  {error && (
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '10px',
-                      background: '#ff4444',
-                      borderRadius: '4px',
-                      fontSize: '12px'
-                    }}>
-                      {error}
-                    </div>
-                  )}
+                  {error}
                 </div>
               )}
+            </div>
+          </div>
 
-              {useActiveLearning && alState && (
-                <div style={{
-                  background: '#2a2a2a',
-                  padding: '16px 20px',
-                  borderRadius: '8px',
-                  color: 'white'
-                }}>
-                  <div style={{ marginBottom: '16px', fontSize: '14px' }}>
-                    <div style={{ marginBottom: '8px', fontSize: '16px', fontWeight: 'bold' }}>
-                      Training Status
-                    </div>
-                    <div style={{ marginBottom: '4px' }}>
-                      Labeled: {alState.n_labeled} / {alState.n_labeled + alState.n_unlabeled}
-                    </div>
-                    {trainingMetrics && (
-                      <>
-                        <div style={{ marginBottom: '4px' }}>
-                          Accuracy: {(trainingMetrics.accuracy * 100).toFixed(2)}%
-                        </div>
-                        <div>Loss: {trainingMetrics.loss.toFixed(4)}</div>
-                      </>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={sampleAndTrain}
-                    disabled={loading || alState.n_unlabeled === 0}
-                    style={{
-                      width: '100%',
-                      padding: '12px 20px',
-                      fontSize: '16px',
-                      background: loading || alState.n_unlabeled === 0 ? '#666' : '#4ae290',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: loading || alState.n_unlabeled === 0 ? 'not-allowed' : 'pointer',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    {loading ? 'Training...' : `Sample & Train (${n_samples} samples)`}
-                  </button>
-
-                  {isTrainingAll ? (
-                    <button
-                      onClick={cancelTraining}
-                      disabled={isCancelling}
-                      style={{
-                        width: '100%',
-                        padding: '12px 20px',
-                        marginTop: "10px",
-                        fontSize: '16px',
-                        background: isCancelling ? '#999' : '#e24a4a',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: isCancelling ? 'not-allowed' : 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      {isCancelling ? 'Wrapping up current cycle...' : 'Cancel Training'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={trainAll}
-                      disabled={loading || alState.n_unlabeled === 0}
-                      style={{
-                        width: '100%',
-                        padding: '12px 20px',
-                        marginTop: "10px",
-                        fontSize: '16px',
-                        background: loading || alState.n_unlabeled === 0 ? '#666' : '#4ae290',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: loading || alState.n_unlabeled === 0 ? 'not-allowed' : 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      Run all
-                    </button>
-                  )}
-                </div>
-              )}
-            </>
-          )} */}
-
-          {/* {activeTab === 'analytics' && (
-            <>
-              {alState && alState.training_history ? (
-                <>
-                  <Analytics data={alState.training_history} />
-                  <Analytics data={alState.training_history} />
-                </>
-              ) : (
-                <div style={{
-                  background: '#2a2a2a',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  color: 'white',
-                  textAlign: 'center',
-                  fontSize: '14px'
-                }}>
-                  No analytics data available yet. Start training to see charts.
-                </div>
-              )}
-            </>
-          )} */}
-
-          {activeTab === 'manager' && (
+          {/* Manager Tab */}
+          <div style={{ display: activeTab === 'manager' ? 'block' : 'none' }}>
             <ManagerPanel
+              dimensionReduction={dimensionReduction}
+              projection={projection}
               onEmbeddingsUpdate={(data) => {
                 setEmbeddingSteps([data.coordinates]);
                 setLabels(data.labels);
@@ -564,11 +466,9 @@ export default function ALTool() {
                 }
               }}
             />
-          )}
+          </div>
         </div>
       </div>
-
-
 
       {/* Right Canvas */}
       <div style={{ width: '66.67%', height: '100vh', position: 'relative' }}>
@@ -611,7 +511,7 @@ export default function ALTool() {
         <Canvas camera={{ position: [5, 5, 5], fov: 20 }}>
           <ambientLight intensity={0.8} />
           <pointLight position={[10, 10, 10]} intensity={0.5} />
-          <pointLight position={[-10, -10, -10]} intensity={0.3} />
+          {/* <pointLight position={[-10, -10, -10]} intensity={0.3} /> */}
           <PointCluster
             embeddingData={embeddingSteps}
             currentStep={step}

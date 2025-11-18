@@ -418,14 +418,16 @@ class ActiveLearner:
             RandomSampling,
             EntropySampling,
             UncertaintySampling,
-            MarginSampling
+            MarginSampling,
+            Anomaly
         )
 
         strategy_map = {
             'random': RandomSampling,
             'entropy': EntropySampling,
             'uncertainty': UncertaintySampling,
-            'margin': MarginSampling
+            'margin': MarginSampling,
+            'anomaly': Anomaly
         }
 
         if sampling_strategy not in strategy_map:
@@ -586,7 +588,7 @@ class ActiveLearner:
 
         logger.info(f"Added {len(indices)} samples. Labeled: {len(self.labeled_indices)}, Unlabeled: {len(self.unlabeled_indices)}")
 
-    def train_step(self, epochs: int = 5, batch_size: int = 8) -> Dict:
+    def train_step(self, epochs: int = 5, batch_size: int = 32) -> Dict:
         """
         Train the model on the current labeled set
 
@@ -777,16 +779,114 @@ class ActiveLearner:
 
         return embeddings_3d
 
-    def get_embeddings_3d(self, reduction_method: str = "pca", max_embeddings: int = 1000) -> np.ndarray:
+    def _project_euclidean(self, embeddings_3d: np.ndarray) -> np.ndarray:
         """
-        Get 3D embeddings from the intermediate layer
+        Euclidean space projection (identity - just centered)
+
+        Args:
+            embeddings_3d: Input 3D coordinates
+
+        Returns:
+            Centered 3D coordinates
+        """
+        return embeddings_3d
+
+    def _project_spherical(self, embeddings_3d: np.ndarray) -> np.ndarray:
+        """
+        Project points onto unit sphere (S²)
+
+        Args:
+            embeddings_3d: Input 3D coordinates
+
+        Returns:
+            3D coordinates normalized to unit sphere
+        """
+        norms = np.linalg.norm(embeddings_3d, axis=1, keepdims=True)
+        # Avoid division by zero
+        norms = np.where(norms == 0, 1, norms)
+        return embeddings_3d / norms
+
+    def _project_torus(self, embeddings_3d: np.ndarray, R: float = 3.0, r: float = 1.0) -> np.ndarray:
+        """
+        Project points onto a torus surface
+
+        Uses the first two coordinates to determine toroidal angles (theta, phi),
+        and the third coordinate to modulate the minor radius.
+
+        Args:
+            embeddings_3d: Input 3D coordinates
+            R: Major radius (distance from center of torus to center of tube)
+            r: Minor radius (radius of the tube)
+
+        Returns:
+            3D coordinates on torus surface
+        """
+        # Normalize input to [-π, π] range for angles
+        x_norm = embeddings_3d[:, 0]
+        y_norm = embeddings_3d[:, 1]
+        z_norm = embeddings_3d[:, 2]
+
+        # Map to toroidal coordinates
+        # theta: angle around the major circle
+        theta = np.arctan2(y_norm, x_norm)
+
+        # phi: angle around the tube
+        # Use the radial distance and z to determine phi
+        radial_dist = np.sqrt(x_norm**2 + y_norm**2)
+        phi = np.arctan2(z_norm, radial_dist - R)
+
+        # Convert toroidal coordinates to Cartesian
+        x_torus = (R + r * np.cos(phi)) * np.cos(theta)
+        y_torus = (R + r * np.cos(phi)) * np.sin(theta)
+        z_torus = r * np.sin(phi)
+
+        return np.column_stack([x_torus, y_torus, z_torus])
+
+    def _project_hyperbolic(self, embeddings_3d: np.ndarray, scale: float = 0.9) -> np.ndarray:
+        """
+        Project points into Poincaré ball model of hyperbolic space
+
+        The Poincaré ball is the unit ball with hyperbolic metric.
+        Points are mapped so they lie within the ball, with distance from
+        origin representing hyperbolic distance.
+
+        Args:
+            embeddings_3d: Input 3D coordinates
+            scale: Scaling factor to control how close points get to boundary (< 1)
+
+        Returns:
+            3D coordinates in Poincaré ball (within unit sphere)
+        """
+        # Normalize to get direction
+        norms = np.linalg.norm(embeddings_3d, axis=1, keepdims=True)
+        norms = np.where(norms == 0, 1, norms)
+        directions = embeddings_3d / norms
+
+        # Map norms to (0, 1) using tanh for smooth compression
+        # tanh naturally maps R -> (-1, 1), and we want (0, 1)
+        radii = np.tanh(norms / norms.max() * 2) * scale
+
+        return directions * radii
+
+    def get_embeddings_3d(self,
+                         reduction_method: str = "pca",
+                         max_embeddings: int = 1000,
+                         projection: str = "euclidean") -> np.ndarray:
+        """
+        Get 3D embeddings from the intermediate layer with geometric projection
 
         Args:
             reduction_method: Method for dimension reduction ('pca')
+            max_embeddings: Maximum number of embeddings to compute
+            projection: Geometric space projection ('euclidean', 'spherical', 'torus', 'hyperbolic')
 
         Returns:
-            Array of shape (n_samples, 3) with 3D coordinates
+            Array of shape (n_samples, 3) with 3D coordinates in the specified space
         """
+        # Validate projection type
+        valid_projections = ['euclidean', 'spherical', 'torus', 'hyperbolic']
+        if projection not in valid_projections:
+            raise ValueError(f"projection must be one of {valid_projections}, got '{projection}'")
 
         self.model.eval()
 
@@ -799,7 +899,7 @@ class ActiveLearner:
             if self.idx is None:
                 print("Generate subset...")
                 self.idx = np.random.choice(embeddings.shape[0], size=max_embeddings, replace=False)
-            
+
             embeddings = embeddings[self.idx]
             print(f"Embeddings subsampled, new shape {embeddings.shape}")
 
@@ -828,6 +928,18 @@ class ActiveLearner:
 
         # Center the embeddings at the origin for better camera rotation
         embeddings_3d = embeddings_3d - embeddings_3d.mean(axis=0)
+
+        # Apply geometric projection
+        projection_funcs = {
+            'euclidean': self._project_euclidean,
+            'spherical': self._project_spherical,
+            'torus': self._project_torus,
+            'hyperbolic': self._project_hyperbolic
+        }
+
+        embeddings_3d = projection_funcs[projection](embeddings_3d)
+        logger.info(f"Applied {projection} projection to embeddings")
+
         return embeddings_3d
 
     def get_state(self) -> Dict:

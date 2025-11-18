@@ -699,7 +699,7 @@ def train_model(epochs: int = 5, batch_size: int = 8):
 
 
 @app.get("/api/active-learning/embeddings-3d")
-def get_active_learning_embeddings():
+def get_active_learning_embeddings(dimension_reduction: str = 'UMAP', projection: str = 'euclidean'):
     """
     Get 3D embeddings from the trained model
 
@@ -713,7 +713,7 @@ def get_active_learning_embeddings():
 
     try:
         # Get 3D embeddings from model
-        embeddings_3d = active_learner.get_embeddings_3d()
+        embeddings_3d = active_learner.get_embeddings_3d(reduction_method=dimension_reduction, projection=projection)
 
         # Get labels and uncertainties - apply the same subsampling as embeddings
         if active_learner.idx is not None:

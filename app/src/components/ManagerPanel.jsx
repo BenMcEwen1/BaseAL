@@ -10,7 +10,7 @@ import {
   getActiveLearningEmbeddings
 } from '../utils/apiClient';
 
-export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, onTrainingUpdate }) {
+export default function ManagerPanel({ dimensionReduction, projection, onEmbeddingsUpdate, onExperimentSelect, onTrainingUpdate }) {
   const [configPath, setConfigPath] = useState('core/config.yml');
   const [experiments, setExperiments] = useState([]);
   const [selectedExperimentIndex, setSelectedExperimentIndex] = useState(null);
@@ -39,6 +39,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
   const [isCancelling, setIsCancelling] = useState(false);
   const [showRunDropdown, setShowRunDropdown] = useState(false);
   const cancelRunRef = React.useRef(false);
+
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -96,7 +97,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
       setSelectedExperimentIndex(index);
 
       // Update embeddings for this experiment
-      const data = await getActiveLearningEmbeddings();
+      const data = await getActiveLearningEmbeddings({ dimensionReduction, projection });
       onEmbeddingsUpdate(data);
       onExperimentSelect(index);
     } catch (err) {
@@ -153,7 +154,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
 
       // Update embeddings for currently selected experiment
       if (selectedExperimentIndex !== null) {
-        const data = await getActiveLearningEmbeddings();
+        const data = await getActiveLearningEmbeddings({ dimensionReduction, projection });
         onEmbeddingsUpdate(data);
         // Update analytics with latest training data
         if (onTrainingUpdate) {
@@ -210,7 +211,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
 
         // Update embeddings for currently selected experiment
         if (selectedExperimentIndex !== null) {
-          const data = await getActiveLearningEmbeddings();
+          const data = await getActiveLearningEmbeddings({ dimensionReduction, projection });
           onEmbeddingsUpdate(data);
           // Update analytics with latest training data
           if (onTrainingUpdate) {
@@ -256,7 +257,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
       {/* Initialization Selection */}
       {!isInitialized && (
         <div style={{
-          background: 'rgba(255, 255, 255, 0.1)',
+          background: 'rgba(255, 255, 255, 0.2)',
           padding: '16px 20px',
           borderRadius: '8px',
           color: 'white'
@@ -271,7 +272,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
           {/* Option 1: Load from Config */}
           {initMode === null || initMode === 'config' ? (
             <div style={{
-              background: '#1a1a1a',
+              background: 'rgba(255, 255, 255, 0.2)',
               padding: '14px',
               borderRadius: '4px',
               marginBottom: '14px'
@@ -359,7 +360,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
           {/* Option 2: Manual Configuration */}
           {initMode === null || initMode === 'manual' ? (
             <div style={{
-              background: '#1a1a1a',
+              background: 'rgba(255, 255, 255, 0.2)',
               padding: '14px',
               borderRadius: '4px'
             }}>
@@ -446,7 +447,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                   onClick={() => handleSelectExperiment(idx)}
                   style={{
                     padding: '14px',
-                    background: selectedExperimentIndex === idx ? '#4ae290' : '#1a1a1a',
+                    background: selectedExperimentIndex === idx ? '#4ae290' : 'rgba(0, 0, 0, 0.1)',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '13px',
@@ -492,7 +493,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
             <div style={{
               marginTop: '14px',
               padding: '14px',
-              background: '#1a1a1a',
+              background: 'rgba(0, 0, 0, 0.1)',
               borderRadius: '4px'
             }}>
               <div style={{ marginBottom: '8px' }}>
@@ -642,7 +643,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                   padding: '8px 0px 8px 8px',
                   borderRadius: '4px',
                   border: '1px solid #444',
-                  background: '#1a1a1a',
+                  background: 'rgba(0, 0, 0, 0.1)',
                   color: 'white',
                   fontSize: '14px'
                 }}
@@ -661,7 +662,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
                   padding: '8px 0px 8px 8px',
                   borderRadius: '4px',
                   border: '1px solid #444',
-                  background: '#1a1a1a',
+                  background: 'rgba(0, 0, 0, 0.1)',
                   color: 'white',
                   fontSize: '14px'
                 }}
@@ -791,7 +792,7 @@ export default function ManagerPanel({ onEmbeddingsUpdate, onExperimentSelect, o
             <div style={{ marginTop: '14px', fontSize: '14px' }}>
               <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Last Cycle Results:</div>
               {Object.entries(runResults).map(([name, metrics]) => (
-                <div key={name} style={{ marginBottom: '4px', padding: '6px', background: '#1a1a1a', borderRadius: '4px' }}>
+                <div key={name} style={{ marginBottom: '4px', padding: '6px', background: 'rgba(0, 0, 0, 0.1)', borderRadius: '4px' }}>
                   <div style={{ fontWeight: 'bold' }}>{name}</div>
                   {metrics.error ? (
                     <div style={{ color: '#ff4444' }}>Error: {metrics.error}</div>

@@ -37,7 +37,7 @@ export default function Home({ onGetStarted, onDocsClick }) {
           fontSize: '12px'
         }}>
             <img
-              src='../public/baseAL_logo.png'
+              src='/baseAL_logo.png'
               alt='BaseAL Logo'
               style={{
                 width: '100%',
@@ -66,8 +66,8 @@ export default function Home({ onGetStarted, onDocsClick }) {
               transition: 'background 0.2s',
               cursor: 'pointer'
             }}
-            onMouseEnter={(e) => e.target.style.background = '#3a3a3a'}
-            onMouseLeave={(e) => e.target.style.background = '#2a2a2a'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.4)'}
+            onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
           >
             Docs
           </button>

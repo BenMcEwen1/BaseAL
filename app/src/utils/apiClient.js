@@ -173,9 +173,9 @@ export async function trainModel(epochs = 5, batchSize = 8) {
  * Get 3D embeddings from trained model
  * @returns {Promise<Object>} 3D coordinates and labels
  */
-export async function getActiveLearningEmbeddings() {
+export async function getActiveLearningEmbeddings({dimensionReduction, projection}) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/active-learning/embeddings-3d`);
+    const response = await fetch(`${API_BASE_URL}/api/active-learning/embeddings-3d?dimension_reduction=${dimensionReduction}&projection=${projection}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }

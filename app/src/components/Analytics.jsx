@@ -76,9 +76,9 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
                 label: 'Loss Upper',
                 data: lossBounds.upper,
                 borderColor: 'transparent',
-                backgroundColor: 'transparent',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
                 pointRadius: 0,
-                fill: false,
+                fill: '+1',
                 tension: 0.1
             },
             // Main line
@@ -130,9 +130,9 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
                 label: `${metricInfo.label} Upper`,
                 data: metricInfo.bounds.upper,
                 borderColor: 'transparent',
-                backgroundColor: 'transparent',
+                backgroundColor: metricInfo.color.replace('rgb', 'rgba').replace(')', ', 0.2)'),
                 pointRadius: 0,
-                fill: false,
+                fill: '+1',
                 tension: 0.1
             },
             // Main line

@@ -112,8 +112,8 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
 
     // Generate sizes based on uncertainties
     const pointSizes = new Float32Array(count);
-    const minSize = 0.3;  // Minimum point size (for labeled/certain points)
-    const maxSize = 0.7;  // Maximum point size (for uncertain points)
+    const minSize = 0.2;  // Minimum point size (for labeled/certain points)
+    const maxSize = 0.4;  // Maximum point size (for uncertain points)
 
     console.log(uncertainties)
     if (uncertainties && uncertainties.length === count) {
@@ -139,7 +139,7 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
       console.log("Fallback point size")
       // Fallback: uniform size
       for (let i = 0; i < count; i++) {
-        pointSizes[i] = 0.2; // Default medium size
+        pointSizes[i] = (minSize + maxSize) / 2; // Default medium size
       }
     }
 

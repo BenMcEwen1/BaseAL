@@ -195,3 +195,48 @@ class MarginSampling(SamplingStrategy):
         selected = np.array(unlabeled_indices)[top_indices].tolist()
 
         return selected, uncertainties
+
+
+class Anomaly(SamplingStrategy):
+    """
+    """
+
+    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
+               embeddings: Optional[np.ndarray] = None, model = None) -> Tuple[List[int], np.ndarray]:
+
+        if predictions is None:
+            raise ValueError("MarginSampling requires predictions")
+        
+        # passing logits as predictions here...
+        temperature = 2
+
+        print(predictions.shape)
+        unlabeled_preds = predictions[unlabeled_indices]
+        logits = unlabeled_preds
+
+
+        # Apply temperature scaling
+        scaled_logits = logits / temperature
+        
+        # Compute softmax
+        exp_logits = np.exp(scaled_logits - np.max(scaled_logits, axis=1, keepdims=True))
+        probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+        
+        # Get maximum probability
+        max_probs = np.max(probs, axis=1)
+
+        anomaly_score = 1 - max_probs
+        
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"MarginSampling - margins min: {max_probs.min():.4f}, max: {max_probs.max():.4f}")
+        logger.info(f"MarginSampling - uncertainties min: {anomaly_score.min():.4f}, max: {anomaly_score.max():.4f}")
+
+        # Select samples with smallest margins (most ambiguous)
+        n_samples = min(self.n_samples, len(unlabeled_indices))
+        top_indices = np.argsort(max_probs)[:n_samples]  # Smallest margins first
+
+        selected = np.array(unlabeled_indices)[top_indices].tolist()
+
+        return selected, anomaly_score

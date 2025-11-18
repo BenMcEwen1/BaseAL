@@ -102,9 +102,9 @@ export default function ComparisonChart({ experimentsData, selectedMetric }) {
             label: `${exp.name} Upper`,
             data: bounds.upper,
             borderColor: 'transparent',
-            backgroundColor: 'transparent',
+            backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.15)'),
             pointRadius: 0,
-            fill: false,
+            fill: '+1',
             tension: 0.1
         });
 
