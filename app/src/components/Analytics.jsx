@@ -42,17 +42,21 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
     }
 
     // Transform training history into Chart.js format
-    const steps = trainingHistory.map((_, index) => index + 1);
+    // Loss data - no initial point, starts from cycle 1
+    const lossSteps = trainingHistory.map((_, index) => index + 1);
     const losses = trainingHistory.map(entry => entry.loss || 0);
-    const accuracies = trainingHistory.map(entry => entry.accuracy || 0);
-    const f1Scores = trainingHistory.map(entry => entry.f1_score || 0);
-    const mAPs = trainingHistory.map(entry => entry.mAP || 0);
-
-    // Extract standard deviations
     const lossesSD = trainingHistory.map(entry => entry.loss_sd || 0);
-    const accuraciesSD = trainingHistory.map(entry => entry.accuracy_sd || 0);
-    const f1ScoresSD = trainingHistory.map(entry => entry.f1_score_sd || 0);
-    const mAPsSD = trainingHistory.map(entry => entry.mAP_sd || 0);
+
+    // Performance metrics - add initial point at (0, 0) before first AL cycle
+    const steps = [0, ...trainingHistory.map((_, index) => index + 1)];
+    const accuracies = [0, ...trainingHistory.map(entry => entry.accuracy || 0)];
+    const f1Scores = [0, ...trainingHistory.map(entry => entry.f1_score || 0)];
+    const mAPs = [0, ...trainingHistory.map(entry => entry.mAP || 0)];
+
+    // Extract standard deviations (0 for initial point)
+    const accuraciesSD = [0, ...trainingHistory.map(entry => entry.accuracy_sd || 0)];
+    const f1ScoresSD = [0, ...trainingHistory.map(entry => entry.f1_score_sd || 0)];
+    const mAPsSD = [0, ...trainingHistory.map(entry => entry.mAP_sd || 0)];
 
     // Helper function to create upper/lower bounds for shaded regions
     const createBounds = (data, sd) => {
@@ -69,7 +73,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
 
     // Chart for Loss with shaded region
     const lossChartData = {
-        labels: steps,
+        labels: lossSteps,
         datasets: [
             // Upper bound (invisible line for fill)
             {
@@ -201,6 +205,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
             y: {
                 type: 'linear',
                 display: true,
+                min: 0,
                 title: {
                     display: true,
                     text: 'Loss',
@@ -216,7 +221,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
             x: {
                 title: {
                     display: true,
-                    text: 'AL Step',
+                    text: 'AL Cycle',
                     color: 'white'
                 },
                 ticks: {
@@ -290,7 +295,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
             x: {
                 title: {
                     display: true,
-                    text: 'AL Step',
+                    text: 'AL Cycle',
                     color: 'white'
                 },
                 ticks: {

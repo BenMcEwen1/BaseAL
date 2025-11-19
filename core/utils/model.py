@@ -56,6 +56,7 @@ class EmbeddingClassifier(nn.Module):
         """
         # Project to intermediate embedding space
         embedding = self.projection(x)
+        embedding = F.relu(embedding)
 
         # Classification
         logits = self.classifier(embedding)
@@ -76,4 +77,5 @@ class EmbeddingClassifier(nn.Module):
         """
         with torch.no_grad():
             embedding = self.projection(x)
+            embedding = F.relu(embedding)
         return embedding

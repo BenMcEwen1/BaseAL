@@ -3,6 +3,7 @@ FastAPI application for serving embeddings data and active learning
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pathlib import Path
 import numpy as np
 from typing import List, Dict, Any, Optional
@@ -11,7 +12,14 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import sys
 import bacpipe
-import umap
+import pandas as pd
+import librosa
+import librosa.display
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+import base64
+import io
 
 # Add core module to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -769,6 +777,77 @@ def get_active_learning_state():
         raise HTTPException(status_code=400, detail="Active learner not initialized. Call /initialize first.")
 
     return active_learner.get_state()
+
+@app.get("/api/media")
+def get_media(index: int):
+    """
+    Get audio file and its spectrogram
+
+    Args:
+        index: Index of the audio file in annotations
+
+    Returns:
+        JSON with base64-encoded audio and spectrogram image
+    """
+    try:
+        # Retrieve audio path from index
+        annotations = pd.read_csv(active_learner.annotations_path)
+        audio_path = annotations['audiofilename'][index]
+        path = f'../test_data/{audio_path}'
+
+        logger.info(f"Loading audio from: {path}")
+
+        # Check if file exists
+        if not Path(path).exists():
+            raise HTTPException(status_code=404, detail=f"Audio file not found: {path}")
+
+        # Load audio file with librosa
+        y, sr = librosa.load(path, sr=None)
+
+        # Generate spectrogram
+        # Using mel spectrogram for better visualization
+        S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, fmax=8000)
+        S_dB = librosa.power_to_db(S, ref=np.max)
+
+        # Create figure for spectrogram - smaller size, no borders or labels
+        fig = plt.figure(figsize=(3.5, 2), frameon=False)
+        ax = plt.Axes(fig, [0., 0., 1., 1.])
+        ax.set_axis_off()
+        fig.add_axes(ax)
+
+        # Display spectrogram with no axes, labels, or colorbar
+        librosa.display.specshow(S_dB, sr=sr, fmax=8000, ax=ax, cmap='viridis')
+
+        # Convert spectrogram to base64 image
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=100, bbox_inches='tight', pad_inches=0)
+        buf.seek(0)
+        spectrogram_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        plt.close(fig)
+
+        # Read audio file and encode to base64
+        with open(path, 'rb') as audio_file:
+            audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
+
+        # Determine audio MIME type based on file extension
+        audio_extension = Path(path).suffix.lower()
+        mime_types = {
+            '.wav': 'audio/wav',
+            '.mp3': 'audio/mpeg',
+            '.ogg': 'audio/ogg',
+            '.flac': 'audio/flac',
+            '.m4a': 'audio/mp4'
+        }
+        audio_mime = mime_types.get(audio_extension, 'audio/wav')
+
+        return {
+            "audio": f"data:{audio_mime};base64,{audio_base64}",
+            "spectrogram": f"data:image/png;base64,{spectrogram_base64}"
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting media: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

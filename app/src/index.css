@@ -51,10 +51,10 @@ button {
 button:hover {
   border-color: #646cff;
 }
-button:focus,
-button:focus-visible {
+/* button:focus, */
+/* button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
-}
+} */
 
 /* Hide scrollbar while keeping scroll functionality */
 .hide-scrollbar {

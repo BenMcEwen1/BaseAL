@@ -365,7 +365,7 @@ class ActiveLearner:
             learning_rate: Learning rate for optimizer
             repeats: Number of training repeats for computing mean/std metrics
             device: Device to use ('cpu' or 'cuda')
-            sampling_strategy: Sampling method to use ('random', 'entropy', 'uncertainty', 'margin')
+            sampling_strategy: Sampling method to use ('random', 'entropy', 'uncertainty', 'margin', 'anomaly', 'margin_diversity')
             n_samples_per_iteration: Default number of samples to select per iteration
         """
         self.embeddings_dir = embeddings_dir
@@ -419,7 +419,8 @@ class ActiveLearner:
             EntropySampling,
             UncertaintySampling,
             MarginSampling,
-            Anomaly
+            Anomaly,
+            MarginDiversitySampling
         )
 
         strategy_map = {
@@ -427,7 +428,8 @@ class ActiveLearner:
             'entropy': EntropySampling,
             'uncertainty': UncertaintySampling,
             'margin': MarginSampling,
-            'anomaly': Anomaly
+            'anomaly': Anomaly,
+            'margin_diversity': MarginDiversitySampling
         }
 
         if sampling_strategy not in strategy_map:

@@ -79,10 +79,11 @@ export default function ComparisonChart({ experimentsData, selectedMetric }) {
     };
 
     // Find the maximum number of steps across all experiments
+    // Add 1 for initial point at (0, 0)
     const maxSteps = Math.max(...experimentsData.map(exp =>
         exp.training_history ? exp.training_history.length : 0
-    ));
-    const steps = Array.from({ length: maxSteps }, (_, i) => i + 1);
+    )) + 1;
+    const steps = Array.from({ length: maxSteps }, (_, i) => i);
 
     // Create datasets for each experiment
     const datasets = [];
@@ -92,9 +93,9 @@ export default function ComparisonChart({ experimentsData, selectedMetric }) {
 
         if (trainingHistory.length === 0) return;
 
-        // Extract metric data and SD
-        const metricData = trainingHistory.map(entry => entry[metricInfo.dataKey] || 0);
-        const metricSD = trainingHistory.map(entry => entry[metricInfo.sdKey] || 0);
+        // Extract metric data and SD, prepend 0 for initial point
+        const metricData = [0, ...trainingHistory.map(entry => entry[metricInfo.dataKey] || 0)];
+        const metricSD = [0, ...trainingHistory.map(entry => entry[metricInfo.sdKey] || 0)];
         const bounds = createBounds(metricData, metricSD);
 
         // Add upper bound (invisible)
@@ -203,7 +204,7 @@ export default function ComparisonChart({ experimentsData, selectedMetric }) {
             x: {
                 title: {
                     display: true,
-                    text: 'AL Step',
+                    text: 'AL Cycle',
                     color: 'white'
                 },
                 ticks: {

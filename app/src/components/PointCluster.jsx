@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -11,13 +11,42 @@ import * as THREE from 'three';
  * @param {Array<string>} props.labelNames - Array of label names for each point
  * @param {Array<boolean>} props.labeledMask - Array indicating which points are labeled
  * @param {Array<number>} props.uncertainties - Array of uncertainty values [0, 1] for scaling point sizes
+ * @param {Function} props.setID - Callback function to set the selected point ID
+ * @param {number|null} props.selectedID - Currently selected point index (null if none selected)
+ * @param {Function} props.onPointClick - Optional callback function that receives the clicked point index
  */
-export default function PointCluster({ embeddingData, currentStep, labels, labelNames, labeledMask, uncertainties }) {
+export default function PointCluster({ setID, selectedID, embeddingData, currentStep, labels, labelNames, labeledMask, uncertainties, onPointClick }) {
   // console.log('PointCluster props:', { embeddingData, labels, labelNames, labeledMask });
   const pointsRef = useRef();
   const currentStepRef = useRef(currentStep);
+  const selectedPointRef = useRef(null);
+  const originalSizesRef = useRef(null);
+  const ringRef = useRef();
+
+  // Track mouse down position and time to detect drag vs click
+  const mouseDownRef = useRef({ x: 0, y: 0, time: 0 });
+  const isDraggingRef = useRef(false);
 
   currentStepRef.current = currentStep;
+
+  // Handle deselection when selectedID becomes null
+  useEffect(() => {
+    if (selectedID === null && selectedPointRef.current !== null) {
+      // Restore the previously selected point's size
+      if (pointsRef.current && originalSizesRef.current) {
+        const sizeAttribute = pointsRef.current.geometry.attributes.size;
+        sizeAttribute.array[selectedPointRef.current] = originalSizesRef.current[selectedPointRef.current];
+        sizeAttribute.needsUpdate = true;
+      }
+
+      // Hide the ring
+      if (ringRef.current) {
+        ringRef.current.visible = false;
+      }
+
+      selectedPointRef.current = null;
+    }
+  }, [selectedID]);
 
   // Create a unique key based on labels, labeledMask, and uncertainties to force recreation when they change
   const colorKey = useMemo(() => {
@@ -112,7 +141,7 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
 
     // Generate sizes based on uncertainties
     const pointSizes = new Float32Array(count);
-    const minSize = 0.2;  // Minimum point size (for labeled/certain points)
+    const minSize = 0.3;  // Minimum point size (for labeled/certain points)
     const maxSize = 0.4;  // Maximum point size (for uncertain points)
 
     console.log(uncertainties)
@@ -149,6 +178,9 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
       const isLabeled = labeledMask ? labeledMask[i] : true;
       pointAlphas[i] = isLabeled ? 0.2 : 1.0;  // Labeled: semi-transparent, Unlabeled: opaque
     }
+
+    // Store original sizes for restoration when selection changes
+    originalSizesRef.current = new Float32Array(pointSizes);
 
     return { positionSteps: steps, colors: cols, sizes: pointSizes, alphas: pointAlphas };
   }, [embeddingData, labels, labeledMask, uncertainties]);
@@ -193,7 +225,7 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
   }, []);
 
   // Animate transition between steps
-  useFrame(() => {
+  useFrame(({ camera }) => {
     if (!pointsRef.current || positionSteps.length === 0) return;
 
     const positions = currentPositions.current;
@@ -204,6 +236,19 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
     }
 
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
+
+    // Update ring position to follow the selected point and face the camera
+    if (ringRef.current && ringRef.current.visible && selectedPointRef.current !== null) {
+      const idx = selectedPointRef.current;
+      ringRef.current.position.set(
+        positions[idx * 3],
+        positions[idx * 3 + 1],
+        positions[idx * 3 + 2]
+      );
+
+      // Make the ring always face the camera (billboard effect)
+      ringRef.current.quaternion.copy(camera.quaternion);
+    }
   });
 
   // Return null if there's no data to display
@@ -211,45 +256,147 @@ export default function PointCluster({ embeddingData, currentStep, labels, label
     return null;
   }
 
+  // Handle mouse down - record position and time
+  const handlePointerDown = (event) => {
+    mouseDownRef.current = {
+      x: event.clientX || event.point.x,
+      y: event.clientY || event.point.y,
+      time: Date.now()
+    };
+    isDraggingRef.current = false;
+  };
+
+  // Handle mouse move - detect dragging
+  const handlePointerMove = (event) => {
+    if (mouseDownRef.current.time > 0) {
+      const dx = (event.clientX || event.point.x) - mouseDownRef.current.x;
+      const dy = (event.clientY || event.point.y) - mouseDownRef.current.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // If moved more than 5 pixels, consider it a drag
+      if (distance > 5) {
+        isDraggingRef.current = true;
+      }
+    }
+  };
+
+  // Handle point click - check if actually clicking on a point
+  const handlePointClick = (event) => {
+    console.log(event)
+    event.stopPropagation();
+
+    const clickTime = Date.now() - mouseDownRef.current.time;
+    const isDrag = isDraggingRef.current;
+
+    // Reset tracking
+    mouseDownRef.current = { x: 0, y: 0, time: 0 };
+    isDraggingRef.current = false;
+
+    // Only trigger viewer if it's a quick click (< 200ms) and not a drag
+    if (isDrag || clickTime > 500) {
+      console.log('Ignoring click - was a drag or hold');
+      return;
+    }
+
+    const clickedIndex = event.index;
+    setID(clickedIndex);
+
+    // Update point sizes to highlight the selected point
+    if (pointsRef.current && originalSizesRef.current) {
+      const sizeAttribute = pointsRef.current.geometry.attributes.size;
+
+      // Restore previous selected point's size
+      if (selectedPointRef.current !== null && selectedPointRef.current !== clickedIndex) {
+        sizeAttribute.array[selectedPointRef.current] = originalSizesRef.current[selectedPointRef.current];
+      }
+
+      // Increase the size of the newly selected point
+      const enlargementFactor = 2.0; // Make selected point 3x larger
+      sizeAttribute.array[clickedIndex] = originalSizesRef.current[clickedIndex] * enlargementFactor;
+
+      // Mark the attribute as needing update
+      sizeAttribute.needsUpdate = true;
+
+      // Update the selected point reference
+      selectedPointRef.current = clickedIndex;
+
+      // Position and show the white ring around the selected point
+      if (ringRef.current && positionSteps.length > 0 && pointsRef.current) {
+        const positions = currentPositions.current;
+        ringRef.current.position.set(
+          positions[clickedIndex * 3],
+          positions[clickedIndex * 3 + 1],
+          positions[clickedIndex * 3 + 2]
+        );
+        ringRef.current.visible = true;
+      }
+    }
+
+    return;
+
+    // if (event.distanceToRay > 0.05) {
+    //   setID(null)
+    //   return;
+    // } else {
+    //   console.log('Selected point: ', event.index)
+    //   setID(event.index)
+    //   return
+    // }
+  };
+
   return (
-    <points ref={pointsRef} key={colorKey}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={currentPositions.current.length / 3}
-          array={currentPositions.current}
-          itemSize={3}
+    <>
+      <points
+        ref={pointsRef}
+        key={colorKey}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onClick={handlePointClick}
+      >
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={currentPositions.current.length / 3}
+            array={currentPositions.current}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            count={colors.length / 3}
+            array={colors}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            count={sizes.length}
+            array={sizes}
+            itemSize={1}
+          />
+          <bufferAttribute
+            attach="attributes-alpha"
+            count={alphas.length}
+            array={alphas}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          size={1.0}
+          vertexColors
+          sizeAttenuation
+          map={circleTexture}
+          transparent
+          // alphaTest={0.01}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          onBeforeCompile={onBeforeCompile}
         />
-        <bufferAttribute
-          attach="attributes-color"
-          count={colors.length / 3}
-          array={colors}
-          itemSize={3}
-        />
-        <bufferAttribute
-          attach="attributes-size"
-          count={sizes.length}
-          array={sizes}
-          itemSize={1}
-        />
-        <bufferAttribute
-          attach="attributes-alpha"
-          count={alphas.length}
-          array={alphas}
-          itemSize={1}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        size={1.0}
-        vertexColors
-        sizeAttenuation
-        map={circleTexture}
-        transparent
-        // alphaTest={0.01}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        onBeforeCompile={onBeforeCompile}
-      />
-    </points>
+      </points>
+
+      {/* White ring around selected point */}
+      <mesh ref={ringRef} visible={false}>
+        <ringGeometry args={[0.05, 0.06, 64]} />
+        <meshBasicMaterial color="white" transparent opacity={0.9} side={THREE.DoubleSide} />
+      </mesh>
+    </>
   );
 }

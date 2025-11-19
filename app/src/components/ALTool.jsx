@@ -5,6 +5,7 @@ import PointCluster from './PointCluster';
 // import Analytics from './Analytics';
 import ManagerPanel from './ManagerPanel';
 import AnalyticsV2 from './AnalyticsV2';
+import Viewer from './Viewer';
 import {
   fetchModels,
   fetchDatasets,
@@ -46,6 +47,9 @@ export default function ALTool() {
   // Visualization settings
   const [dimensionReduction, setDimensionReduction] = useState('UMAP');
   const [projection, setProjection] = useState('euclidean');
+
+  // Data viewer
+  const [id, setID] = useState(null)
 
   useEffect(() => {
     const loadModels = async () => {
@@ -257,6 +261,9 @@ export default function ALTool() {
       background: '#060014ff',
       display: 'flex'
     }}>
+      <Viewer mediaID={id} setID={setID}/>
+
+
       {/* Left Panel */}
       <div style={{
         width: '33.33%',
@@ -310,10 +317,10 @@ export default function ALTool() {
             style={{
               flex: 1,
               padding: '16px',
-              background: activeTab === 'analytics' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+              background: activeTab === 'settings' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
               color: 'white',
               border: 'none',
-              borderBottom: activeTab === 'analytics' ? '2px solid #4ae290' : '2px solid transparent',
+              borderBottom: activeTab === 'settings' ? '2px solid #4ae290' : '2px solid transparent',
               cursor: 'pointer',
               fontSize: '16px',
               fontWeight: 'bold'
@@ -508,11 +515,12 @@ export default function ALTool() {
         />
 
         {/* 3D Canvas */}
-        <Canvas camera={{ position: [5, 5, 5], fov: 20 }}>
+        <Canvas camera={{ position: [5, 5, 5], fov: 20 }} raycaster={{ params: { Points: { threshold: 0.03 } } }}>
           <ambientLight intensity={0.8} />
           <pointLight position={[10, 10, 10]} intensity={0.5} />
-          {/* <pointLight position={[-10, -10, -10]} intensity={0.3} /> */}
           <PointCluster
+            setID={setID}
+            selectedID={id}
             embeddingData={embeddingSteps}
             currentStep={step}
             labels={labels}

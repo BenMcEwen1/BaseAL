@@ -347,3 +347,20 @@ export async function selectExperiment(experimentIndex) {
     throw error;
   }
 }
+
+export async function getMedia(mediaIndex) {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/media?index=${mediaIndex}`,
+      { method: 'GET' }
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    // Returns JSON with { audio: "data:audio/...", spectrogram: "data:image/png;..." }
+    return await response.json();
+  } catch (error) {
+    console.error('Error selecting media:', error);
+    throw error;
+  }
+}
