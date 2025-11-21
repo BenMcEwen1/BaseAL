@@ -742,7 +742,7 @@ def get_active_learning_embeddings(dimension_reduction: str = 'UMAP', projection
         unc_array = np.array(uncertainties)
         logger.info(f"Uncertainties - min: {unc_array.min():.4f}, max: {unc_array.max():.4f}, mean: {unc_array.mean():.4f}")
         logger.info(f"Uncertainties shape: {unc_array.shape}, unique values: {len(np.unique(unc_array))}")
-        print(f"Sample uncertainties: {uncertainties[:10]}")
+        print(f"Sample uncertainties: {uncertainties[:20]}")
 
         # Sanity check: clip to [0, 1] if values are out of range
         if unc_array.min() < 0 or unc_array.max() > 1:

@@ -351,7 +351,8 @@ class ActiveLearner:
         repeats: int = 1,
         device: str = "cpu",
         sampling_strategy: str = "random",
-        n_samples_per_iteration: int = 5
+        n_samples_per_iteration: int = 5,
+        pretrain_samples: Optional[int] = None
     ):
         """
         Initialize active learner
@@ -367,6 +368,7 @@ class ActiveLearner:
             device: Device to use ('cpu' or 'cuda')
             sampling_strategy: Sampling method to use ('random', 'entropy', 'uncertainty', 'margin', 'anomaly', 'margin_diversity')
             n_samples_per_iteration: Default number of samples to select per iteration
+            pretrain_samples: Number of high-density samples to pre-select for warm-up training (optional)
         """
         self.embeddings_dir = embeddings_dir
         self.annotations_path = annotations_path
@@ -420,7 +422,8 @@ class ActiveLearner:
             UncertaintySampling,
             MarginSampling,
             Anomaly,
-            MarginDiversitySampling
+            MarginDiversitySampling,
+            MarginDiversitySamplingDensity
         )
 
         strategy_map = {
@@ -429,7 +432,8 @@ class ActiveLearner:
             'uncertainty': UncertaintySampling,
             'margin': MarginSampling,
             'anomaly': Anomaly,
-            'margin_diversity': MarginDiversitySampling
+            'margin_diversity': MarginDiversitySampling,
+            'margin_diversity_density': MarginDiversitySamplingDensity
         }
 
         if sampling_strategy not in strategy_map:
@@ -445,6 +449,11 @@ class ActiveLearner:
         self.labeled_indices = []
         self.unlabeled_indices = list(range(len(self.embeddings)))
         self.training_history = []
+
+        # Pre-training warm-up: select high-density samples if specified
+        if pretrain_samples is not None and pretrain_samples > 0:
+            self._pretrain_warmup(pretrain_samples)
+            logger.info(f"Pre-training warm-up: selected {len(self.labeled_indices)} high-density samples")
 
         # Per-sample uncertainties (updated after each sampling step)
         # Initialize with zeros for all samples
@@ -516,6 +525,48 @@ class ActiveLearner:
         logger.info(f"Loaded {len(embeddings)} embeddings with shape {embeddings.shape}")
 
         return embeddings, labels, label_to_idx, idx_to_label
+
+    def _pretrain_warmup(self, n_samples: int):
+        """
+        Pre-training warm-up: select high-density samples for initial training
+
+        This method selects samples with lots of neighbors (high density) for
+        initial annotation and training, without requiring model predictions.
+
+        Args:
+            n_samples: Number of high-density samples to pre-select
+        """
+        from .utils.sampling import densityEstimation
+
+        # Ensure we don't request more samples than available
+        n_samples = min(n_samples, len(self.embeddings))
+
+        logger.info(f"Computing density estimation for {len(self.embeddings)} samples...")
+
+        # Compute density using KNN method (samples with more neighbors = higher density)
+        # Using k=20 as a reasonable default for neighbor count
+        density_scores = densityEstimation(
+            embeddings=self.embeddings,
+            method='knn',
+            k=min(20, len(self.embeddings) - 1),  # Ensure k < n_samples
+            beta=1
+        )
+
+        logger.info(f"Density scores - min: {density_scores.min():.4f}, max: {density_scores.max():.4f}, mean: {density_scores.mean():.4f}")
+
+        # Select samples with highest density
+        # Higher density = more neighbors = more representative samples
+        top_density_indices = np.argsort(density_scores)[-n_samples:]
+
+        # Add these samples to labeled set
+        self.labeled_indices = top_density_indices.tolist()
+
+        # Remove from unlabeled set
+        self.unlabeled_indices = [idx for idx in range(len(self.embeddings))
+                                  if idx not in self.labeled_indices]
+
+        logger.info(f"Pre-training warm-up complete: selected {len(self.labeled_indices)} high-density samples")
+        logger.info(f"Remaining unlabeled samples: {len(self.unlabeled_indices)}")
 
     def sample(self, n_samples: Optional[int] = None) -> List[int]:
         """
@@ -937,7 +988,7 @@ class ActiveLearner:
 
     def get_embeddings_3d(self,
                          reduction_method: str = "pca",
-                         max_embeddings: int = 1000,
+                         max_embeddings: int = 4000,
                          projection: str = "euclidean") -> np.ndarray:
         """
         Get 3D embeddings from the intermediate layer with geometric projection

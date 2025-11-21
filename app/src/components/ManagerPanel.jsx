@@ -28,9 +28,9 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
 
   // Manager run settings
   const [runSettings, setRunSettings] = useState({
-    n_samples: 50,
+    n_samples: 32,
     epochs: 5,
-    batch_size: 8,
+    batch_size: 32,
     parallel: false
   });
 
