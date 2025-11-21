@@ -784,15 +784,23 @@ def get_media(index: int):
     Get audio file and its spectrogram
 
     Args:
-        index: Index of the audio file in annotations
+        index: Index of the audio file in annotations (subset index if subset is applied)
 
     Returns:
         JSON with base64-encoded audio and spectrogram image
     """
     try:
-        # Retrieve audio path from index
+        # Translate subset index to original dataset index if subset is applied
+        if active_learner.idx is not None:
+            # When subset is active, translate the subset index to original dataset index
+            original_index = int(active_learner.idx[index])
+        else:
+            # No subset, use index directly
+            original_index = index
+
+        # Retrieve audio path from original index
         annotations = pd.read_csv(active_learner.annotations_path)
-        audio_path = annotations['audiofilename'][index]
+        audio_path = annotations['audiofilename'][original_index]
         path = f'../test_data/{audio_path}'
 
         logger.info(f"Loading audio from: {path}")

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Analytics from './Analytics';
 import ComparisonChart from './ComparisonChart';
+import ReliabilityChart from './ReliabilityChart';
 
 export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experimentsData }) {
     const [selectedMetric, setSelectedMetric] = useState('accuracy');
@@ -14,7 +15,7 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experime
             top: 0,
             width: '60vw',
             height: '100vh',
-            backgroundColor: '#060014ff', 
+            backgroundColor: 'rgba(6, 0, 20, 0.6)', 
             backdropFilter: 'blur(10px)',
             zIndex: 10,
             display: 'flex',
@@ -59,8 +60,8 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experime
 
             {/* Charts Container */}
             <div style={{
-                display: 'flex',
-                flexDirection: 'column',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
                 gap: '20px',
                 flex: 1
             }}>
@@ -71,8 +72,14 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experime
                         <ComparisonChart
                             experimentsData={experimentsData}
                             selectedMetric={selectedMetric}
+                            onMetricChange={setSelectedMetric}
                         />
                         )}
+
+                        {/* Reliability/Calibration Chart */}
+                        <ReliabilityChart
+                            trainingHistory={trainingHistory}
+                        />
 
                         {/* Single Experiment Charts */}
                         <Analytics
@@ -83,11 +90,11 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experime
                     </>
                 ) : (
                     <div style={{
-                        background: '#2a2a2a',
-                        padding: '40px',
+                        background: 'transparent',
+                        padding: '16px 20px',
                         borderRadius: '8px',
                         color: 'white',
-                        textAlign: 'center',
+                        textAlign: 'center', 
                         fontSize: '16px'
                     }}>
                         No training data available yet. Start training to see analytics.

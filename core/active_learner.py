@@ -590,6 +590,65 @@ class ActiveLearner:
 
         logger.info(f"Added {len(indices)} samples. Labeled: {len(self.labeled_indices)}, Unlabeled: {len(self.unlabeled_indices)}")
 
+    def _calculate_calibration_metrics(self, probabilities: np.ndarray, predicted: np.ndarray,
+                                       labels: np.ndarray, n_bins: int = 10) -> Dict:
+        """
+        Calculate calibration metrics for reliability plot
+
+        Args:
+            probabilities: Predicted probabilities for all classes (n_samples, n_classes)
+            predicted: Predicted class labels (n_samples,)
+            labels: True labels (n_samples,)
+            n_bins: Number of bins for calibration plot
+
+        Returns:
+            Dictionary with calibration data for plotting
+        """
+        # Get confidence (max probability) for each prediction
+        confidences = np.max(probabilities, axis=1)
+        correct = (predicted == labels).astype(int)
+
+        # Create bins
+        bin_boundaries = np.linspace(0, 1, n_bins + 1)
+        bin_lowers = bin_boundaries[:-1]
+        bin_uppers = bin_boundaries[1:]
+
+        # Calculate accuracy and confidence per bin
+        bin_accuracies = []
+        bin_confidences = []
+        bin_counts = []
+
+        ece = 0.0  # Expected Calibration Error
+
+        for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
+            # Find samples in this bin
+            in_bin = (confidences > bin_lower) & (confidences <= bin_upper)
+            prop_in_bin = in_bin.mean()
+
+            if prop_in_bin > 0:
+                accuracy_in_bin = correct[in_bin].mean()
+                avg_confidence_in_bin = confidences[in_bin].mean()
+                count_in_bin = in_bin.sum()
+
+                bin_accuracies.append(float(accuracy_in_bin))
+                bin_confidences.append(float(avg_confidence_in_bin))
+                bin_counts.append(int(count_in_bin))
+
+                # Add to ECE
+                ece += np.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
+            else:
+                bin_accuracies.append(None)
+                bin_confidences.append(float((bin_lower + bin_upper) / 2))
+                bin_counts.append(0)
+
+        return {
+            'bin_confidences': bin_confidences,
+            'bin_accuracies': bin_accuracies,
+            'bin_counts': bin_counts,
+            'ece': float(ece),
+            'n_bins': n_bins
+        }
+
     def train_step(self, epochs: int = 5, batch_size: int = 32) -> Dict:
         """
         Train the model on the current labeled set
@@ -708,6 +767,11 @@ class ActiveLearner:
                     mAP = 0.0
                     logger.warning("mAP calculation failed, using 0.0")
 
+                # Calculate calibration metrics
+                calibration_data = self._calculate_calibration_metrics(
+                    probabilities, predicted_np, labels_np
+                )
+
             # Store metrics for this repeat
             avg_loss = total_loss / max(1, len(X_train_orig) // batch_size)
             all_losses.append(avg_loss)
@@ -733,7 +797,8 @@ class ActiveLearner:
             "mAP_sd": float(np.std(all_mAPs)) if self.repeats > 1 else 0.0,
             "n_labeled": len(self.labeled_indices),
             "n_unlabeled": len(self.unlabeled_indices),
-            "repeats": self.repeats
+            "repeats": self.repeats,
+            "calibration": calibration_data  # Add calibration data from last repeat
         }
 
         self.training_history.append(metrics)

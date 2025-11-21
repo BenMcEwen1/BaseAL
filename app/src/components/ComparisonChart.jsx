@@ -23,7 +23,7 @@ ChartJS.register(
   Filler
 );
 
-export default function ComparisonChart({ experimentsData, selectedMetric }) {
+export default function ComparisonChart({ experimentsData, selectedMetric, onMetricChange }) {
     console.log('Comparison Chart - Experiments Data:', experimentsData);
     console.log('Selected Metric:', selectedMetric);
 
@@ -219,13 +219,58 @@ export default function ComparisonChart({ experimentsData, selectedMetric }) {
 
     return (
         <div style={{
-            background: 'rgba(255, 255, 255, 0.2)',
+            background: 'rgba(255, 255, 255, 0.1)',
             padding: '16px 20px',
             borderRadius: '8px',
-            width: '100%',
-            height: '400px'
+            height: '400px',
+            display: 'flex',
+            flexDirection: 'row',
+            gap: '15px',
+            // minWidth: '500px'
         }}>
-            <Line options={options} data={chartData} />
+            {/* Dropdown Menu */}
+            <div style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                padding: '16px',
+                borderRadius: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                minWidth: '150px',
+                flexShrink: 0
+            }}>
+                <div style={{
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    marginBottom: '5px'
+                }}>
+                    Select Metric
+                </div>
+                <select
+                    value={selectedMetric}
+                    onChange={(e) => onMetricChange && onMetricChange(e.target.value)}
+                    style={{
+                        background: 'rgba(47, 44, 58, 1)',
+                        color: 'white',
+                        border: '1px solid #444444',
+                        borderRadius: '4px',
+                        padding: '8px',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        outline: 'none'
+                    }}
+                >
+                    <option value="accuracy">Accuracy</option>
+                    <option value="f1_score">F1 Score</option>
+                    <option value="mAP">mAP</option>
+                </select>
+            </div>
+
+            {/* Chart Container */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <Line options={options} data={chartData} />
+            </div>
         </div>
     );
 }

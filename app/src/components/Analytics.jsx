@@ -310,57 +310,21 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
 
     return (
         <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-            width: '100%'
+            // display: 'flex',
+            // flexDirection: 'row',
+            // gap: '20px',
+            // width: '100%'
         }}>
             {/* Performance Metric Chart with Dropdown */}
             <div style={{
                 display: 'flex',
-                gap: '15px',
+                // gap: '15px',
                 alignItems: 'stretch'
             }}>
-                {/* Dropdown Menu */}
-                <div style={{
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    padding: '16px',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px',
-                    minWidth: '150px'
-                }}>
-                    <div style={{
-                        color: 'white',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        marginBottom: '5px'
-                    }}>
-                        Select Metric
-                    </div>
-                    <select
-                        value={selectedMetric}
-                        onChange={(e) => onMetricChange && onMetricChange(e.target.value)}
-                        style={{
-                            background: '#1a1a1a',
-                            color: 'white',
-                            border: '1px solid #444',
-                            borderRadius: '4px',
-                            padding: '8px',
-                            fontSize: '14px',
-                            cursor: 'pointer',
-                            outline: 'none'
-                        }}
-                    >
-                        <option value="accuracy">Accuracy</option>
-                        <option value="f1_score">F1 Score</option>
-                        <option value="mAP">mAP</option>
-                    </select>
-                </div>
+                
 
                 {/* Chart */}
-                <div style={{
+                {/* <div style={{
                     background: 'rgba(255, 255, 255, 0.1)',
                     padding: '16px 20px',
                     borderRadius: '8px',
@@ -368,15 +332,15 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
                     height: '400px'
                 }}>
                     <Line options={performanceOptions} data={performanceChartData} />
-                </div>
+                </div> */}
             </div>
             {/* Loss Chart */}
             <div style={{
                 background: 'rgba(255, 255, 255, 0.1)',
                 padding: '16px 20px',
                 borderRadius: '8px',
-                width: '100%',
-                height: '300px'
+                // width: 'min(100%, 25vw)',
+                height: '400px'
             }}>
                 <Line options={lossOptions} data={lossChartData} />
             </div>

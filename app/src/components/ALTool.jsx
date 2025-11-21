@@ -363,8 +363,8 @@ export default function ALTool() {
                     width: '100%',
                     padding: '10px',
                     borderRadius: '4px',
-                    border: '1px solid #444',
-                    background: 'rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #444444',
+                    background: 'rgba(47, 44, 58, 1)',
                     color: 'white',
                     fontSize: '14px'
                   }}
@@ -387,7 +387,7 @@ export default function ALTool() {
                     padding: '10px',
                     borderRadius: '4px',
                     border: '1px solid #444',
-                    background: 'rgba(0, 0, 0, 0.1)',
+                    background: 'rgba(47, 44, 58, 1)',
                     color: 'white',
                     fontSize: '14px'
                   }}
