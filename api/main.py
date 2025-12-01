@@ -714,7 +714,7 @@ def get_active_learning_embeddings(dimension_reduction: str = 'UMAP', projection
     Returns:
         3D coordinates, labels, and per-sample uncertainties
     """
-    global active_learner
+    global active_learner 
 
     if active_learner is None:
         raise HTTPException(status_code=400, detail="Active learner not initialized. Call /initialize first.")
@@ -737,6 +737,30 @@ def get_active_learning_embeddings(dimension_reduction: str = 'UMAP', projection
             labeled_mask = [i in active_learner.labeled_indices for i in range(len(embeddings_3d))]
             uncertainties = active_learner.uncertainties.tolist()
 
+        # Convert labels to label names and extract primary labels for coloring
+        # Handle both single-label and multilabel
+        if active_learner.is_multilabel:
+            # Multilabel: labels are binary vectors, convert to list of label names
+            label_names = []
+            label_indices_for_color = []  # Primary label index for color assignment
+
+            for label_vector in labels:
+                # Find indices where label is 1
+                active_indices = [i for i, val in enumerate(label_vector) if val == 1 or val == 1.0]
+                # Get corresponding label names
+                active_labels = [active_learner.idx_to_label[idx] for idx in active_indices]
+
+                # For display: join all labels with semicolon
+                label_names.append(";".join(active_labels) if active_labels else "none")
+
+                # For coloring: use first label (primary label)
+                # This ensures consistent color assignment for multilabel points
+                label_indices_for_color.append(active_indices[0] if active_indices else 0)
+        else:
+            # Single-label: labels are integers, look up directly
+            label_names = [active_learner.idx_to_label[label] for label in labels]
+            label_indices_for_color = labels  # Use the labels directly for coloring
+
         # Debug: Check uncertainty range
         import numpy as np
         unc_array = np.array(uncertainties)
@@ -752,7 +776,8 @@ def get_active_learning_embeddings(dimension_reduction: str = 'UMAP', projection
         return {
             "coordinates": embeddings_3d.tolist(),
             "labels": labels,
-            "label_names": [active_learner.idx_to_label[label] for label in labels],
+            "label_names": label_names,
+            "label_indices_for_color": label_indices_for_color,  # Primary label for color assignment
             "labeled_mask": labeled_mask,
             "uncertainties": uncertainties,  # Normalized uncertainty scores [0, 1]
             "state": active_learner.get_state()

@@ -11,7 +11,7 @@ export default function Home({ onGetStarted, onDocsClick }) {
       position: 'relative',
       overflow: 'hidden'
     }}>
-      <Promote/>
+      {/* <Promote/> */}
       {/* Top Navigation Bar */}
       <div style={{
         display: 'flex',

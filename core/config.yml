@@ -1,55 +1,6 @@
 # Configuration file for Active Learning experiments
 
 experiments:
-  # Experiment: Margin Sampling
-  # - name: Margin
-  #   embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
-  #   annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
-  #   model_name: birdnet
-  #   dataset_name: esc50
-  #   hidden_dim: null  # Will default to input_dim
-  #   sampling_strategy: margin 
-  #   learning_rate: 0.001
-  #   repeats: 5 # Number of iterations per AL cycle to compute mean and SD, default is 1.
-  #   device: cpu
-
-  - name: Margin (Diversification)
-    embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
-    annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
-    model_name: birdnet
-    dataset_name: esc50
-    hidden_dim: null  # Will default to input_dim
-    sampling_strategy: margin_diversity
-    learning_rate: 0.001
-    repeats: 2 # Number of iterations per AL cycle to compute mean and SD, default is 1.
-    device: cpu
-    pretrain_samples: 64  # Pre-select 10 high-density samples for warm-up training
-
-  # - name: Margin (Diversification and density)
-  #   embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
-  #   annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
-  #   model_name: birdnet
-  #   dataset_name: esc50
-  #   hidden_dim: null  # Will default to input_dim
-  #   sampling_strategy: margin_diversity_density
-  #   learning_rate: 0.001
-  #   repeats: 2 # Number of iterations per AL cycle to compute mean and SD, default is 1.
-  #   device: cpu
-  #   pretrain_samples: 32  # Pre-select 10 high-density samples for warm-up training
-
-
-  # # Experiment: Anomaly Sampling
-  # - name: Anomaly
-  #   embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
-  #   annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
-  #   model_name: birdnet
-  #   dataset_name: esc50
-  #   hidden_dim: null  # Will default to input_dim
-  #   sampling_strategy: anomaly 
-  #   learning_rate: 0.1
-  #   repeats: 1 # Number of iterations per AL cycle to compute mean and SD, default is 1.
-  #   device: cpu
-
   # Experiment: Random Sampling
   - name: Random
     embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
@@ -61,16 +12,17 @@ experiments:
     learning_rate: 0.001
     repeats: 2
     device: cpu
-    pretrain_samples: 64  # Optional: omit or set to null to skip pre-training
+    pretrain_samples: null  # Optional: omit or set to null to skip pre-training
 
-  # # Experiment: Margin Sampling
-  # - name: Entropy
-  #   embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
-  #   annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
-  #   model_name: birdnet
-  #   dataset_name: esc50
-  #   hidden_dim: null  # Will default to input_dim
-  #   sampling_strategy: entropy 
-  #   learning_rate: 0.01
-  #   repeats: 1 # Number of iterations per AL cycle to compute mean and SD, default is 1.
-  #   device: cpu
+  # Experiment: Margin Sampling
+  - name: Margin
+    embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
+    annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
+    model_name: birdnet
+    dataset_name: esc50
+    hidden_dim: null  # Will default to input_dim
+    sampling_strategy: margin
+    learning_rate: 0.001
+    repeats: 2 # Number of iterations per AL cycle to compute mean and SD, default is 1.
+    device: cpu
+    pretrain_samples: null  # Pre-select 10 high-density samples for warm-up training

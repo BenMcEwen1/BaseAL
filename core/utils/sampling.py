@@ -1,11 +1,14 @@
 """
 Sampling strategies for active learning
 """
-from abc import ABC, abstractmethod
 import numpy as np
+import pandas as pd
 from typing import List, Optional, Tuple
 from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 from sklearn.neighbors import NearestNeighbors
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def densityEstimation(embeddings: Optional[np.ndarray] = None, method='cosine', beta: int = 1, k: int = 20):
@@ -24,29 +27,68 @@ def densityEstimation(embeddings: Optional[np.ndarray] = None, method='cosine', 
     return density
 
 
-class SamplingStrategy(ABC):
-    """Base class for all sampling strategies"""
+class SamplingStrategy:
+    """
+    Unified sampling strategy class that handles all sampling methods.
 
-    def __init__(self, n_samples: int = 20):
+    This class contains the selection logic and various sampling methods.
+    Data is stored as instance attributes and accessed by sampling methods.
+    """
+
+    def __init__(self, method: str = "random", n_samples: int = 20):
         """
         Initialize sampling strategy
 
         Args:
+            method: Sampling method to use ('random', 'margin', 'custom')
             n_samples: Number of samples to select per iteration
         """
+        self.method = method
         self.n_samples = n_samples
 
-    @abstractmethod
-    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
-               embeddings: Optional[np.ndarray] = None, model = None) -> Tuple[List[int], np.ndarray]:
+        # Available sampling methods
+        available_methods = ['random', 'margin', 'custom']
+
+        if method not in available_methods:
+            raise ValueError(
+                f"Unknown sampling strategy: {method}. "
+                f"Available strategies: {available_methods}"
+            )
+
+        # Map method names to their implementation functions
+        self._method_map = {
+            'random': self._random,
+            'margin': self._margin,
+            'custom': self._custom,
+        }
+
+        # Data attributes (see selct)
+        self.unlabeled_indices = None
+        self.predictions = None
+        self.embeddings = None
+        self.model = None
+        self.annotations = None
+
+        logger.info(f"Initialized SamplingStrategy with method='{method}' and n_samples={n_samples}")
+
+    def select(self,
+               unlabeled_indices: List[int],
+               predictions: Optional[np.ndarray] = None,
+               embeddings: Optional[np.ndarray] = None,
+               model = None,
+               annotations: Optional[pd.DataFrame] = None) -> Tuple[List[int], np.ndarray]:
         """
-        Select samples for annotation and compute per-sample uncertainties
+        Select samples for annotation and compute per-sample uncertainties.
+
+        This is the main selection method that stores the input data as instance
+        attributes and calls the appropriate sampling method.
 
         Args:
             unlabeled_indices: List/array of unlabeled sample indices
             predictions: Optional numpy array of model predictions (N x num_classes)
-            embeddings: Optional numpy array of embeddings
+            embeddings: Optional numpy array of embeddings (N x embedding_dim)
             model: Optional reference to the model itself
+            annotations: Optional DataFrame containing annotation data and metadata
 
         Returns:
             Tuple of (selected_indices, uncertainties):
@@ -54,142 +96,60 @@ class SamplingStrategy(ABC):
                 - uncertainties: Normalized uncertainty scores for unlabeled samples [0, 1]
                   where 1 = maximum uncertainty, 0 = complete certainty
         """
-        pass
+        if len(unlabeled_indices) == 0:
+            logger.warning("No unlabeled samples available for selection")
+            return [], np.array([])
 
+        # Store data as instance attributes for sampling methods to access
+        self.unlabeled_indices = unlabeled_indices
+        self.predictions = predictions
+        self.embeddings = embeddings
+        self.model = model
+        self.annotations = annotations
 
-class RandomSampling(SamplingStrategy):
-    """Random sampling strategy - only needs indices"""
+        # Call the appropriate sampling method to get uncertainties
+        sampling_func = self._method_map[self.method]
+        uncertainties = sampling_func()
 
-    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
-               embeddings: Optional[np.ndarray] = None, model = None) -> Tuple[List[int], np.ndarray]:
-        """
-        Randomly select samples from unlabeled pool
-        For random sampling, all samples have equal uncertainty (1.0)
-
-        Args:
-            unlabeled_indices: List of unlabeled sample indices
-            predictions: Not used
-            embeddings: Not used
-            model: Not used
-
-        Returns:
-            Tuple of (selected_indices, uncertainties):
-                - selected_indices: List of randomly selected indices
-                - uncertainties: Array of 1.0 for all unlabeled samples (equal uncertainty)
-        """
+        # Select samples with highest uncertainties
         n_samples = min(self.n_samples, len(unlabeled_indices))
-        selected = np.random.choice(unlabeled_indices, size=n_samples, replace=False).tolist()
-
-        # For random sampling, all samples have equal uncertainty
-        uncertainties = np.ones(len(unlabeled_indices))
-
-        return selected, uncertainties
-
-
-class EntropySampling(SamplingStrategy):
-    """Entropy-based sampling - selects samples with highest prediction entropy"""
-
-    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
-               embeddings: Optional[np.ndarray] = None, model = None) -> Tuple[List[int], np.ndarray]:
-        """
-        Select samples with highest prediction entropy
-
-        Args:
-            unlabeled_indices: List of unlabeled sample indices
-            predictions: Model predictions (N x num_classes) - REQUIRED
-            embeddings: Not used
-            model: Not used
-
-        Returns:
-            Tuple of (selected_indices, uncertainties):
-                - selected_indices: List of selected indices with highest entropy
-                - uncertainties: Normalized entropy scores for all unlabeled samples [0, 1]
-        """
-        if predictions is None:
-            raise ValueError("EntropySampling requires predictions")
-
-        # Calculate entropy for unlabeled samples only
-        unlabeled_preds = predictions[unlabeled_indices]
-
-        # Compute entropy: -sum(p * log(p))
-        epsilon = 1e-10  # Avoid log(0)
-        entropy = -np.sum(unlabeled_preds * np.log(unlabeled_preds + epsilon), axis=1)
-
-        # Normalize entropy to [0, 1]
-        # Max entropy = log(num_classes) for uniform distribution
-        num_classes = unlabeled_preds.shape[1]
-        max_entropy = np.log(num_classes)
-        normalized_entropy = entropy / max_entropy if max_entropy > 0 else entropy
-
-        # Select samples with highest entropy
-        n_samples = min(self.n_samples, len(unlabeled_indices))
-        top_indices = np.argsort(entropy)[-n_samples:]
+        top_indices = np.argsort(uncertainties)[-n_samples:]  # Highest uncertainties
 
         selected = np.array(unlabeled_indices)[top_indices].tolist()
 
-        return selected, normalized_entropy
-
-
-class UncertaintySampling(SamplingStrategy):
-    """Uncertainty sampling - selects samples with lowest maximum probability (least confident)"""
-
-    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
-               embeddings: Optional[np.ndarray] = None, model = None) -> Tuple[List[int], np.ndarray]:
-        """
-        Select samples with lowest confidence (lowest max probability)
-
-        Args:
-            unlabeled_indices: List of unlabeled sample indices
-            predictions: Model predictions (N x num_classes) - REQUIRED
-            embeddings: Not used
-            model: Not used
-
-        Returns:
-            Tuple of (selected_indices, uncertainties):
-                - selected_indices: List of selected indices with lowest confidence
-                - uncertainties: Normalized uncertainty scores (1 - max_prob) for all unlabeled samples [0, 1]
-        """
-        if predictions is None:
-            raise ValueError("UncertaintySampling requires predictions")
-
-        unlabeled_preds = predictions[unlabeled_indices]
-        max_probs = np.max(unlabeled_preds, axis=1)
-
-        # Uncertainty = 1 - max_probability (already normalized to [0, 1])
-        uncertainties = 1.0 - max_probs
-
-        # Select samples with lowest maximum probability (most uncertain)
-        n_samples = min(self.n_samples, len(unlabeled_indices))
-        top_indices = np.argsort(max_probs)[:n_samples]  # Lowest confidence first
-
-        selected = np.array(unlabeled_indices)[top_indices].tolist()
+        logger.info(f"Selected {len(selected)} samples using {self.method} sampling")
+        logger.info(f"utility range: min={uncertainties.min():.4f}, max={uncertainties.max():.4f}, mean={uncertainties.mean():.4f}")
 
         return selected, uncertainties
 
-
-class MarginSampling(SamplingStrategy):
-    """Margin sampling - selects samples with smallest margin between top two predictions"""
-
-    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
-               embeddings: Optional[np.ndarray] = None, model = None) -> Tuple[List[int], np.ndarray]:
+    def _random(self) -> np.ndarray:
         """
-        Select samples with smallest margin between top two class probabilities
+        Random sampling strategy - assigns equal utility to all samples.
 
-        Args:
-            unlabeled_indices: List of unlabeled sample indices
-            predictions: Model predictions (N x num_classes) - REQUIRED
-            embeddings: Not used
-            model: Not used
+        For random sampling, all samples have equal utility (1.0), so selection
+        is effectively random.
 
         Returns:
-            Tuple of (selected_indices, uncertainties):
-                - selected_indices: List of selected indices with smallest margins
-                - uncertainties: Normalized uncertainty scores (1 - margin) for all unlabeled samples [0, 1]
+            utility: Array of 1.0 for all unlabeled samples (equal utility)
         """
-        if predictions is None:
-            raise ValueError("MarginSampling requires predictions")
+        # All samples have equal uncertainty for random sampling
+        utility = np.ones(len(self.unlabeled_indices))
+        return utility
 
-        unlabeled_preds = predictions[unlabeled_indices]
+    def _margin(self) -> np.ndarray:
+        """
+        Margin sampling - selects samples with smallest margin between top two predictions.
+
+        The margin is the difference between the highest and second-highest predicted
+        class probabilities. Smaller margins indicate more ambiguous predictions.
+
+        Returns:
+            utility: Normalized utility scores (1 - margin) for all unlabeled samples [0, 1]
+        """
+        if self.predictions is None:
+            raise ValueError("Margin sampling requires predictions")
+
+        unlabeled_preds = self.predictions[self.unlabeled_indices]
 
         # Sort predictions for each sample to get top 2
         sorted_preds = np.sort(unlabeled_preds, axis=1)
@@ -198,397 +158,39 @@ class MarginSampling(SamplingStrategy):
         margins = sorted_preds[:, -1] - sorted_preds[:, -2]
 
         # Uncertainty = 1 - margin (smaller margin = higher uncertainty, already normalized to [0, 1])
-        uncertainties = 1.0 - margins
+        utility = 1.0 - margins
 
-        # Debug logging
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"MarginSampling - margins min: {margins.min():.4f}, max: {margins.max():.4f}")
-        logger.info(f"MarginSampling - uncertainties min: {uncertainties.min():.4f}, max: {uncertainties.max():.4f}")
+        logger.info(f"Margin sampling - margins min: {margins.min():.4f}, max: {margins.max():.4f}")
+        logger.info(f"Margin sampling - utility min: {utility.min():.4f}, max: {utility.max():.4f}")
+        return utility
 
-        # Select samples with smallest margins (most ambiguous)
-        n_samples = min(self.n_samples, len(unlabeled_indices))
-        top_indices = np.argsort(margins)[:n_samples]  # Smallest margins first
-
-        selected = np.array(unlabeled_indices)[top_indices].tolist()
-
-        return selected, uncertainties
-
-
-class Anomaly(SamplingStrategy):
-    """
-    """
-
-    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
-               embeddings: Optional[np.ndarray] = None, model = None) -> Tuple[List[int], np.ndarray]:
-
-        if predictions is None:
-            raise ValueError("MarginSampling requires predictions")
-
-        # passing logits as predictions here...
-        temperature = 2
-
-        print(predictions.shape)
-        unlabeled_preds = predictions[unlabeled_indices]
-        logits = unlabeled_preds
-
-
-        # Apply temperature scaling
-        scaled_logits = logits / temperature
-
-        # Compute softmax
-        exp_logits = np.exp(scaled_logits - np.max(scaled_logits, axis=1, keepdims=True))
-        probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
-
-        # Get maximum probability
-        max_probs = np.max(probs, axis=1)
-
-        anomaly_score = 1 - max_probs
-
-        # Debug logging
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"MarginSampling - margins min: {max_probs.min():.4f}, max: {max_probs.max():.4f}")
-        logger.info(f"MarginSampling - uncertainties min: {anomaly_score.min():.4f}, max: {anomaly_score.max():.4f}")
-
-        # Select samples with smallest margins (most ambiguous)
-        n_samples = min(self.n_samples, len(unlabeled_indices))
-        top_indices = np.argsort(max_probs)[:n_samples]  # Smallest margins first
-
-        selected = np.array(unlabeled_indices)[top_indices].tolist()
-
-        return selected, anomaly_score
-
-
-class MarginDiversitySamplingDensity(SamplingStrategy):
-    """
-    Margin sampling with diversification across the embedding space.
-
-    This strategy combines uncertainty-based selection (margin sampling) with
-    diversity-based selection to ensure selected samples are both uncertain
-    and spread out across the feature space.
-    """
-
-    def __init__(self, n_samples: int = 20, candidate_multiplier: float = 3.0):
+    def _custom(self) -> np.ndarray:
         """
-        Initialize margin diversity sampling strategy
+        Custom sampling template.
 
-        Args:
-            n_samples: Number of samples to select per iteration
-            candidate_multiplier: Factor to determine candidate pool size
-                                (candidate_pool_size = n_samples * candidate_multiplier)
-        """
-        super().__init__(n_samples)
-        self.candidate_multiplier = candidate_multiplier
+        INSTRUCTIONS FOR IMPLEMENTING CUSTOM SAMPLING:
+        ===============================================
 
-    def _compute_pairwise_distances(self, embeddings: np.ndarray) -> np.ndarray:
-        """
-        Compute pairwise Euclidean distances between embeddings
+        1. This method should compute utility scores for all unlabeled samples.
 
-        Args:
-            embeddings: Array of shape (n_samples, embedding_dim)
+        2. The uncertainty scores should be normalized to [0, 1] where:
+           - 1.0 = maximum uncertainty (highest priority for annotation)
+           - 0.0 = complete certainty (lowest priority for annotation)
+
+        3. Available instance attributes (set by select() method):
+           - self.unlabeled_indices: List of indices in the unlabeled pool
+           - self.predictions: Model predictions array of shape (n_total_samples, num_classes)
+                              Contains probabilities for all classes
+           - self.embeddings: Full embeddings array of shape (n_total_samples, embedding_dim)
+                             The raw feature vectors before classification
+           - self.model: Reference to the trained model (if you need to extract features/gradients)
+           - self.annotations: DataFrame containing annotation data and metadata
+                              Can contain custom metadata fields for advanced sampling strategies
 
         Returns:
-            Distance matrix of shape (n_samples, n_samples)
+            utility: Array of utility scores for samples [0, 1]
         """
-        # Using broadcasting to compute all pairwise distances efficiently
-        # ||a - b||^2 = ||a||^2 + ||b||^2 - 2*a·b
-        norms_squared = np.sum(embeddings ** 2, axis=1, keepdims=True)
-        distances = norms_squared + norms_squared.T - 2 * np.dot(embeddings, embeddings.T)
-        # Clip negative values due to numerical errors
-        distances = np.sqrt(np.maximum(distances, 0))
-        return distances
-
-    def _greedy_diversity_selection(self,
-                                     candidate_embeddings: np.ndarray,
-                                     candidate_indices: np.ndarray,
-                                     n_select: int) -> List[int]:
-        """
-        Greedily select diverse samples using k-center approach
-
-        Starts with the sample farthest from the origin, then iteratively
-        selects samples that are farthest from already selected samples.
-
-        Args:
-            candidate_embeddings: Embeddings of candidate samples (n_candidates, embedding_dim)
-            candidate_indices: Original indices of candidates
-            n_select: Number of samples to select
-
-        Returns:
-            List of selected indices from candidate_indices
-        """
-        n_candidates = len(candidate_embeddings)
-
-        if n_candidates <= n_select:
-            return candidate_indices.tolist()
-
-        # Initialize selection with sample farthest from origin
-        norms = np.linalg.norm(candidate_embeddings, axis=1)
-        first_idx = np.argmax(norms)
-
-        selected_mask = np.zeros(n_candidates, dtype=bool)
-        selected_mask[first_idx] = True
-        selected_count = 1
-
-        # Track minimum distance from each candidate to any selected sample
-        min_distances = np.full(n_candidates, np.inf)
-
-        # Compute distances to first selected sample
-        first_embedding = candidate_embeddings[first_idx:first_idx+1]
-        distances_to_first = np.linalg.norm(
-            candidate_embeddings - first_embedding, axis=1
-        )
-        min_distances = np.minimum(min_distances, distances_to_first)
-
-        # Greedily select remaining samples
-        while selected_count < n_select:
-            # Exclude already selected samples
-            min_distances[selected_mask] = -np.inf
-
-            # Select sample with maximum distance to nearest selected sample
-            next_idx = np.argmax(min_distances)
-            selected_mask[next_idx] = True
-            selected_count += 1
-
-            # Update minimum distances
-            next_embedding = candidate_embeddings[next_idx:next_idx+1]
-            distances_to_next = np.linalg.norm(
-                candidate_embeddings - next_embedding, axis=1
-            )
-            min_distances = np.minimum(min_distances, distances_to_next)
-
-        # Return original indices of selected samples
-        selected_local_indices = np.where(selected_mask)[0]
-        return candidate_indices[selected_local_indices].tolist()
-
-    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
-               embeddings: Optional[np.ndarray] = None, model = None, density = True) -> Tuple[List[int], np.ndarray]:
-        """
-        Select samples with smallest margins and high diversity in embedding space
-
-        Args:
-            unlabeled_indices: List of unlabeled sample indices
-            predictions: Model predictions (N x num_classes) - REQUIRED
-            embeddings: Embeddings array (N x embedding_dim) - REQUIRED
-            model: Not used
-
-        Returns:
-            Tuple of (selected_indices, uncertainties):
-                - selected_indices: List of selected indices with small margins and high diversity
-                - uncertainties: Normalized uncertainty scores (1 - margin) for all unlabeled samples [0, 1]
-        """
-        if predictions is None:
-            raise ValueError("MarginDiversitySampling requires predictions")
-        if embeddings is None:
-            raise ValueError("MarginDiversitySampling requires embeddings")
-
-        import logging
-        logger = logging.getLogger(__name__)
-
-        unlabeled_preds = predictions[unlabeled_indices]
-        unlabeled_embeddings = embeddings[unlabeled_indices]
-
-        # Step 1: Compute margin-based uncertainties
-        sorted_preds = np.sort(unlabeled_preds, axis=1)
-        margins = sorted_preds[:, -1] - sorted_preds[:, -2]
-        uncertainties = 1.0 - margins
-
-        if density:
-            uncertainties = uncertainties * densityEstimation(unlabeled_embeddings)
-
-        logger.info(f"MarginDiversitySampling - margins min: {margins.min():.4f}, max: {margins.max():.4f}")
-        logger.info(f"MarginDiversitySampling - uncertainties min: {uncertainties.min():.4f}, max: {uncertainties.max():.4f}")
-
-        # Step 2: Select candidate pool based on margin uncertainty
-        n_samples = min(self.n_samples, len(unlabeled_indices))
-        candidate_pool_size = min(
-            int(n_samples * self.candidate_multiplier),
-            len(unlabeled_indices)
-        )
-
-        # Get indices of top uncertain samples (smallest margins)
-        candidate_local_indices = np.argsort(margins)[:candidate_pool_size]
-        candidate_embeddings = unlabeled_embeddings[candidate_local_indices]
-
-        logger.info(f"MarginDiversitySampling - candidate pool size: {candidate_pool_size}, target samples: {n_samples}")
-
-        # Step 3: Apply diversity selection on candidate pool
-        selected_local_indices = self._greedy_diversity_selection(
-            candidate_embeddings,
-            candidate_local_indices,
-            n_samples
-        )
-
-        # Convert local indices (within unlabeled set) to global indices
-        selected = np.array(unlabeled_indices)[selected_local_indices].tolist()
-
-        logger.info(f"MarginDiversitySampling - selected {len(selected)} diverse samples from {candidate_pool_size} candidates")
-
-        return selected, uncertainties
-    
-
-class MarginDiversitySampling(SamplingStrategy):
-    """
-    Margin sampling with diversification across the embedding space.
-
-    This strategy combines uncertainty-based selection (margin sampling) with
-    diversity-based selection to ensure selected samples are both uncertain
-    and spread out across the feature space.
-    """
-
-    def __init__(self, n_samples: int = 20, candidate_multiplier: float = 3.0):
-        """
-        Initialize margin diversity sampling strategy
-
-        Args:
-            n_samples: Number of samples to select per iteration
-            candidate_multiplier: Factor to determine candidate pool size
-                                (candidate_pool_size = n_samples * candidate_multiplier)
-        """
-        super().__init__(n_samples)
-        self.candidate_multiplier = candidate_multiplier
-
-    def _compute_pairwise_distances(self, embeddings: np.ndarray) -> np.ndarray:
-        """
-        Compute pairwise Euclidean distances between embeddings
-
-        Args:
-            embeddings: Array of shape (n_samples, embedding_dim)
-
-        Returns:
-            Distance matrix of shape (n_samples, n_samples)
-        """
-        # Using broadcasting to compute all pairwise distances efficiently
-        # ||a - b||^2 = ||a||^2 + ||b||^2 - 2*a·b
-        norms_squared = np.sum(embeddings ** 2, axis=1, keepdims=True)
-        distances = norms_squared + norms_squared.T - 2 * np.dot(embeddings, embeddings.T)
-        # Clip negative values due to numerical errors
-        distances = np.sqrt(np.maximum(distances, 0))
-        return distances
-
-    def _greedy_diversity_selection(self,
-                                     candidate_embeddings: np.ndarray,
-                                     candidate_indices: np.ndarray,
-                                     n_select: int) -> List[int]:
-        """
-        Greedily select diverse samples using k-center approach
-
-        Starts with the sample farthest from the origin, then iteratively
-        selects samples that are farthest from already selected samples.
-
-        Args:
-            candidate_embeddings: Embeddings of candidate samples (n_candidates, embedding_dim)
-            candidate_indices: Original indices of candidates
-            n_select: Number of samples to select
-
-        Returns:
-            List of selected indices from candidate_indices
-        """
-        n_candidates = len(candidate_embeddings)
-
-        if n_candidates <= n_select:
-            return candidate_indices.tolist()
-
-        # Initialize selection with sample farthest from origin
-        norms = np.linalg.norm(candidate_embeddings, axis=1)
-        first_idx = np.argmax(norms)
-
-        selected_mask = np.zeros(n_candidates, dtype=bool)
-        selected_mask[first_idx] = True
-        selected_count = 1
-
-        # Track minimum distance from each candidate to any selected sample
-        min_distances = np.full(n_candidates, np.inf)
-
-        # Compute distances to first selected sample
-        first_embedding = candidate_embeddings[first_idx:first_idx+1]
-        distances_to_first = np.linalg.norm(
-            candidate_embeddings - first_embedding, axis=1
-        )
-        min_distances = np.minimum(min_distances, distances_to_first)
-
-        # Greedily select remaining samples
-        while selected_count < n_select:
-            # Exclude already selected samples
-            min_distances[selected_mask] = -np.inf
-
-            # Select sample with maximum distance to nearest selected sample
-            next_idx = np.argmax(min_distances)
-            selected_mask[next_idx] = True
-            selected_count += 1
-
-            # Update minimum distances
-            next_embedding = candidate_embeddings[next_idx:next_idx+1]
-            distances_to_next = np.linalg.norm(
-                candidate_embeddings - next_embedding, axis=1
-            )
-            min_distances = np.minimum(min_distances, distances_to_next)
-
-        # Return original indices of selected samples
-        selected_local_indices = np.where(selected_mask)[0]
-        return candidate_indices[selected_local_indices].tolist()
-
-    def select(self, unlabeled_indices: List[int], predictions: Optional[np.ndarray] = None,
-               embeddings: Optional[np.ndarray] = None, model = None, density = False) -> Tuple[List[int], np.ndarray]:
-        """
-        Select samples with smallest margins and high diversity in embedding space
-
-        Args:
-            unlabeled_indices: List of unlabeled sample indices
-            predictions: Model predictions (N x num_classes) - REQUIRED
-            embeddings: Embeddings array (N x embedding_dim) - REQUIRED
-            model: Not used
-
-        Returns:
-            Tuple of (selected_indices, uncertainties):
-                - selected_indices: List of selected indices with small margins and high diversity
-                - uncertainties: Normalized uncertainty scores (1 - margin) for all unlabeled samples [0, 1]
-        """
-        if predictions is None:
-            raise ValueError("MarginDiversitySampling requires predictions")
-        if embeddings is None:
-            raise ValueError("MarginDiversitySampling requires embeddings")
-
-        import logging
-        logger = logging.getLogger(__name__)
-
-        unlabeled_preds = predictions[unlabeled_indices]
-        unlabeled_embeddings = embeddings[unlabeled_indices]
-
-        # Step 1: Compute margin-based uncertainties
-        sorted_preds = np.sort(unlabeled_preds, axis=1)
-        margins = sorted_preds[:, -1] - sorted_preds[:, -2]
-        uncertainties = 1.0 - margins
-
-        if density:
-            uncertainties = uncertainties * densityEstimation(unlabeled_embeddings)
-
-        logger.info(f"MarginDiversitySampling - margins min: {margins.min():.4f}, max: {margins.max():.4f}")
-        logger.info(f"MarginDiversitySampling - uncertainties min: {uncertainties.min():.4f}, max: {uncertainties.max():.4f}")
-
-        # Step 2: Select candidate pool based on margin uncertainty
-        n_samples = min(self.n_samples, len(unlabeled_indices))
-        candidate_pool_size = min(
-            int(n_samples * self.candidate_multiplier),
-            len(unlabeled_indices)
-        )
-
-        # Get indices of top uncertain samples (smallest margins)
-        candidate_local_indices = np.argsort(margins)[:candidate_pool_size]
-        candidate_embeddings = unlabeled_embeddings[candidate_local_indices]
-
-        logger.info(f"MarginDiversitySampling - candidate pool size: {candidate_pool_size}, target samples: {n_samples}")
-
-        # Step 3: Apply diversity selection on candidate pool
-        selected_local_indices = self._greedy_diversity_selection(
-            candidate_embeddings,
-            candidate_local_indices,
-            n_samples
-        )
-
-        # Convert local indices (within unlabeled set) to global indices
-        selected = np.array(unlabeled_indices)[selected_local_indices].tolist()
-
-        logger.info(f"MarginDiversitySampling - selected {len(selected)} diverse samples from {candidate_pool_size} candidates")
-
-        return selected, uncertainties
+        # TODO: Implement your custom sampling logic here
+        # For now, default to random sampling
+        logger.warning("Custom sampling not implemented, falling back to random sampling")
+        return self._random()

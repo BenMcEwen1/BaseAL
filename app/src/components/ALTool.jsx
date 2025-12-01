@@ -35,6 +35,7 @@ export default function ALTool() {
   // const [n_samples, setSamples] = useState(10);
   const [labels, setLabels] = useState(null);
   const [labelNames, setLabelNames] = useState(null);
+  const [labelIndicesForColor, setLabelIndicesForColor] = useState(null); // Primary label for color assignment
   const [labeledMask, setLabeledMask] = useState(null);
   const [uncertainties, setUncertainties] = useState(null);
   const [activeTab, setActiveTab] = useState('manager');
@@ -242,6 +243,7 @@ export default function ALTool() {
       setEmbeddingSteps([data.coordinates]);
       setLabels(data.labels);
       setLabelNames(data.label_names);
+      setLabelIndicesForColor(data.label_indices_for_color || data.labels); // Fallback to labels if not provided
       setLabeledMask(data.labeled_mask);
       setUncertainties(data.uncertainties);
       setStep(0);
@@ -259,14 +261,15 @@ export default function ALTool() {
       height: '100vh',
       overflow: 'hidden',
       background: '#060014ff',
-      display: 'flex'
+      display: 'flex',
+      position: 'relative'
     }}>
       <Viewer mediaID={id} setID={setID}/>
 
 
       {/* Left Panel */}
       <div style={{
-        width: '33.33%',
+        width: 'min(33.33%, 500px)',
         height: '100vh',
         padding: '15px 20px',
         display: 'flex',
@@ -441,6 +444,7 @@ export default function ALTool() {
                 setEmbeddingSteps([data.coordinates]);
                 setLabels(data.labels);
                 setLabelNames(data.label_names);
+                setLabelIndicesForColor(data.label_indices_for_color || data.labels); // Fallback to labels if not provided
                 setLabeledMask(data.labeled_mask);
                 setUncertainties(data.uncertainties);
                 setStep(0);
@@ -478,7 +482,7 @@ export default function ALTool() {
       </div>
 
       {/* Right Canvas */}
-      <div style={{ width: '66.67%', height: '100vh', position: 'relative' }}>
+      <div style={{ width: '66.67%', height: '100vh', position: 'absolute', right: '0px' }}>
         {/* Toggle Analytics Button */}
         {!isAnalyticsPanelOpen && (
           <button
@@ -525,6 +529,7 @@ export default function ALTool() {
             currentStep={step}
             labels={labels}
             labelNames={labelNames}
+            labelIndicesForColor={labelIndicesForColor}
             labeledMask={labeledMask}
             uncertainties={uncertainties}
           />

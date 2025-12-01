@@ -7,15 +7,16 @@ import * as THREE from 'three';
  * @param {Object} props
  * @param {Array<Array<[number, number, number]>>} props.embeddingData - Array of steps, each containing point coordinates
  * @param {number} props.currentStep - Current step index to display
- * @param {Array<number>} props.labels - Array of label indices for each point
+ * @param {Array<number>} props.labels - Array of label indices for each point (for single-label) or binary vectors (for multilabel)
  * @param {Array<string>} props.labelNames - Array of label names for each point
+ * @param {Array<number>} props.labelIndicesForColor - Array of primary label indices for color assignment
  * @param {Array<boolean>} props.labeledMask - Array indicating which points are labeled
  * @param {Array<number>} props.uncertainties - Array of uncertainty values [0, 1] for scaling point sizes
  * @param {Function} props.setID - Callback function to set the selected point ID
  * @param {number|null} props.selectedID - Currently selected point index (null if none selected)
  * @param {Function} props.onPointClick - Optional callback function that receives the clicked point index
  */
-export default function PointCluster({ setID, selectedID, embeddingData, currentStep, labels, labelNames, labeledMask, uncertainties, onPointClick }) {
+export default function PointCluster({ setID, selectedID, embeddingData, currentStep, labels, labelNames, labelIndicesForColor, labeledMask, uncertainties, onPointClick }) {
   // console.log('PointCluster props:', { embeddingData, labels, labelNames, labeledMask });
   const pointsRef = useRef();
   const currentStepRef = useRef(currentStep);
@@ -48,13 +49,13 @@ export default function PointCluster({ setID, selectedID, embeddingData, current
     }
   }, [selectedID]);
 
-  // Create a unique key based on labels, labeledMask, and uncertainties to force recreation when they change
+  // Create a unique key based on labelIndicesForColor, labeledMask, and uncertainties to force recreation when they change
   const colorKey = useMemo(() => {
-    const labelsStr = labels ? labels.join(',') : 'no-labels';
+    const labelsStr = labelIndicesForColor ? labelIndicesForColor.join(',') : 'no-labels';
     const maskStr = labeledMask ? labeledMask.map(m => m ? '1' : '0').join('') : 'no-mask';
     const uncertStr = uncertainties ? uncertainties.map(u => u.toFixed(2)).join(',') : 'no-uncertainties';
     return `${labelsStr}-${maskStr}-${uncertStr}`;
-  }, [labels, labeledMask, uncertainties]);
+  }, [labelIndicesForColor, labeledMask, uncertainties]);
 
   // Convert embedding data to Float32Arrays and generate colors, sizes, and alphas
   const { positionSteps, colors, sizes, alphas } = useMemo(() => {
@@ -73,21 +74,24 @@ export default function PointCluster({ setID, selectedID, embeddingData, current
       return positions;
     });
 
-    // Generate colors based on labels or fallback to cluster-based coloring
+    // Generate colors based on labelIndicesForColor or fallback to cluster-based coloring
     const count = embeddingData[0].length;
     const cols = new Float32Array(count * 3);
 
-    if (labels && labels.length === count) {
+    // Use labelIndicesForColor for color assignment (handles both single-label and multilabel)
+    const colorLabels = labelIndicesForColor || labels;
+
+    if (colorLabels && colorLabels.length === count) {
       // console.log("Setting colours")
       // Find unique labels to determine number of classes
-      const uniqueLabels = [...new Set(labels)];
+      const uniqueLabels = [...new Set(colorLabels)];
       const numClasses = uniqueLabels.length;
       // console.log('Unique labels:', uniqueLabels, 'Num classes:', numClasses);
-      // console.log('First 10 label indices:', labels.slice(0, 10));
+      // console.log('First 10 label indices:', colorLabels.slice(0, 10));
 
       // Generate distinct colors for each label
       for (let i = 0; i < count; i++) {
-        const labelIndex = labels[i];
+        const labelIndex = colorLabels[i];
         const hue = (labelIndex / numClasses) * 360;
 
         // if (i < 5) {
@@ -183,7 +187,7 @@ export default function PointCluster({ setID, selectedID, embeddingData, current
     originalSizesRef.current = new Float32Array(pointSizes);
 
     return { positionSteps: steps, colors: cols, sizes: pointSizes, alphas: pointAlphas };
-  }, [embeddingData, labels, labeledMask, uncertainties]);
+  }, [embeddingData, labelIndicesForColor, labels, labeledMask, uncertainties]);
 
   // Initialize with first step positions (or empty if no data)
   const currentPositions = useRef(
