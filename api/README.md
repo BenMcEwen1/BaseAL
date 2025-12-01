@@ -11,22 +11,26 @@ FastAPI backend for loading and serving embedding data from the bacpipe results.
 
 ## Installation
 
+From the root directory of the project:
+
 ```bash
-cd api
-pip install -r requirements.txt
+uv sync
 ```
+
+This will install all Python dependencies from the root [pyproject.toml](../pyproject.toml).
 
 ## Running the API
 
+From the root directory:
+
 ```bash
-# From the api directory
-python main.py
+uv run python api/main.py
 ```
 
 Or using uvicorn directly:
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at `http://localhost:8000`

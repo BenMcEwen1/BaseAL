@@ -11,16 +11,18 @@ The tool provides a complete pipeline for embedding generation, inteligent sampl
 
 ### Key Features
 
+- **Experiment Management**: Track and compare different active learning configurations
 - **Interactive 3D Visualization**: Explore high-dimensional embeddings using PCA/UMAP reduction with an interactive Three.js interface
 - **Multiple Sampling Strategies**: Compare different sampling and diversification strategies
 - **Model Integration**: Built on [Bacpipe](https://github.com/bioacoustic-ai/bacpipe) for seamless integration with bioacoustic models
-- **Experiment Management**: Track and compare different active learning configurations
+
 
 # Setup
 
 ## Prerequisites
 
-- **Python**: 3.8 or higher
+- **Python**: 3.11 or 3.12
+- **uv**: Package manager ([installation guide](https://docs.astral.sh/uv/getting-started/installation/))
 - **Node.js**: 16.x or higher
 - **npm**: 8.x or higher
 
@@ -33,20 +35,22 @@ git clone https://github.com/yourusername/BaseAL.git
 cd BaseAL
 ```
 
-### 2. Set Up the Backend (API Server)
+### 2. Set Up Python Dependencies (Backend)
 
 ```bash
-cd api
-pip install -r requirements.txt
+uv sync
 ```
 
-**Requirements**: FastAPI, PyTorch, scikit-learn, numpy, pandas, UMAP
+This will install all Python dependencies including the workspace member `bacpipe`.
+
+**Dependencies**: FastAPI, PyTorch, scikit-learn, numpy, pandas, UMAP, librosa, matplotlib, and more (see [pyproject.toml](pyproject.toml))
 
 ### 3. Set Up the Frontend (Web Interface)
 
 ```bash
 cd app
 npm install
+cd ..
 ```
 
 ## Quick Start
@@ -54,8 +58,7 @@ npm install
 ### 1. Start the API Server
 
 ```bash
-cd api
-python main.py
+uv run python api/main.py
 ```
 
 The API will be available at `http://localhost:8000`
@@ -63,6 +66,8 @@ The API will be available at `http://localhost:8000`
 You can verify it's running by visiting `http://localhost:8000/docs` for the interactive API documentation.
 
 ### 2. Start the Web Interface
+
+Open a new terminal window and run:
 
 ```bash
 cd app
@@ -79,47 +84,6 @@ The web interface will be available at `http://localhost:5173`
 4. Click **"Load Embeddings"** to generate and visualize embeddings
 5. Use **Run/Run All** buttons to step through AL cycles
 6. Interact with the 3D scatter plot to explore your data
-
-## Usage Workflow
-
-### Basic Active Learning Session
-
-1. **Prepare Your Data**: Place audio files in a directory (flat structure, no subdirectories)
-2. **Configure Model**: Select from available bioacoustic models via the interface
-3. **Choose Sampling Strategy**:
-   - **Random**: Baseline random selection
-   - **Entropy**: Uncertainty-based sampling for multilabel classification
-   - **Cluster-based**: Diversity-promoting selection
-4. **Generate Embeddings**: Click "Load Embeddings" (initial processing may take time)
-5. **Annotate Samples**: Use the interface to label samples suggested by the active learner
-6. **Iterate**: Repeat the process to progressively improve model performance
-
-### Sampling Methods
-
-BaseAL provides several sampling strategies:
-
-- **Random**: Baseline sampling for comparison
-- **Entropy-based**: Selects samples where the model is most uncertain
-- **Cluster-based**: Promotes diversity by sampling across embedding space clusters
-- **Stratified**: Leverages metadata for balanced sampling (custom implementation)
-
-## Model Integration
-
-BaseAL uses [Bacpipe](https://github.com/bioacoustic-ai/bacpipe) for embedding and prediction generation. Bacpipe provides wrappers for common bioacoustic models including:
-
-- BirdNET
-- Perch
-- Custom PyTorch models
-
-Refer to the [Bacpipe documentation](https://github.com/bioacoustic-ai/bacpipe) for available models and configuration options.
-
-## Dataset Requirements
-
-- **Format**: .wav or .mp3 files
-- **Structure**: Flat directory (no subdirectories)
-- **Metadata**: Optional CSV with additional sample information
-- **Labels**: Optional ground truth labels for baseline performance metrics
-- **Processing**: Audio is automatically segmented and resampled based on model requirements
 
 ## Acknowledgments
 

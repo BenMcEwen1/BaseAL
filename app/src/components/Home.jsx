@@ -164,7 +164,7 @@ export default function Home({ onGetStarted, onDocsClick }) {
           textAlign: 'center',
           maxWidth: '600px'
         }}>
-          A Modular Active Learning Framework
+          A Modular Active Learning Evaluation Framework
         </p>
 
         {/* Get Started Button */}
