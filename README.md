@@ -7,7 +7,7 @@
 
 BaseAL is an framework for developing and evaluating active learning methods. Built upon [Bacpipe](https://github.com/bioacoustic-ai/bacpipe), BaseAL (v1.0.0) focuses on audio and bioacoustic data. 
 
-The tool provides a complete pipeline for embedding generation, inteligent sampling strategies, 3D visualization, and annotation workflows.
+The tool provides a complete pipeline for embedding generation, evaluating sampling strategies and 3D visualization.
 
 ### Key Features
 
