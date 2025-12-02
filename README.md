@@ -7,12 +7,15 @@
 
 BaseAL is an framework for developing and evaluating active learning methods. Built upon [Bacpipe](https://github.com/bioacoustic-ai/bacpipe), BaseAL (v1.0.0) focuses on audio and bioacoustic data. 
 
-The tool provides a complete pipeline for embedding generation, evaluating sampling strategies and 3D visualization.
+The tool provides a complete pipeline for embedding generation, evaluating sampling strategies and 3D visualisation.
+
+![Demo](demo.gif)
+*Demo of 3D visualisation.*
 
 ### Key Features
 
 - **Experiment Management**: Track and compare different active learning configurations
-- **Interactive 3D Visualization**: Explore high-dimensional embeddings using PCA/UMAP reduction with an interactive Three.js interface
+- **Interactive 3D Visualisation**: Explore high-dimensional embeddings using PCA/UMAP reduction with an interactive Three.js interface
 - **Multiple Sampling Strategies**: Compare different sampling and diversification strategies
 - **Model Integration**: Built on [Bacpipe](https://github.com/bioacoustic-ai/bacpipe) for seamless integration with bioacoustic models
 
@@ -58,7 +61,8 @@ cd ..
 ### 1. Start the API Server
 
 ```bash
-uv run python api/main.py
+cd api
+python main.py
 ```
 
 The API will be available at `http://localhost:8000`
