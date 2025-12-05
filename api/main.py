@@ -11,7 +11,6 @@ import logging
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import sys
-import bacpipe
 import pandas as pd
 import librosa
 import librosa.display
@@ -118,13 +117,13 @@ def load_embeddings_from_folder(folder_path: Path) -> List[Dict[str, Any]]:
 def info():
     return {"message": "BaseAL Embeddings API", "version": "1.0.0"}
 
-@app.get("/api/generate")
-def generate_embeddings():
-    try:
-        bacpipe.play(save_logs=False)
-    except:
-        raise HTTPException(status_code=404, detail=f"Embedding generation failed")
-    return {"status": "complete"}
+# @app.get("/api/generate")
+# def generate_embeddings():
+#     try:
+#         bacpipe.play(save_logs=False)
+#     except:
+#         raise HTTPException(status_code=404, detail=f"Embedding generation failed")
+#     return {"status": "complete"}
 
 
 
@@ -242,106 +241,6 @@ def get_embeddings_3d(model_name: str, dataset_name: str):
     except Exception as e:
         logger.error(f"Error processing embeddings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @app.get("/api/embeddings/{model_name}/{dataset_name}/steps")
-# def get_embeddings_steps(model_name: str, dataset_name: str, n_steps: int = 4):
-#     """
-#     Get embeddings as progressive steps showing clustering over different PCA dimensions
-#     This creates an animation effect similar to the example
-
-#     Args:
-#         model_name: Name of the model
-#         dataset_name: Name of the dataset folder
-#         n_steps: Number of progressive steps to generate
-
-#     Returns:
-#         JSON with coordinates for each step
-#     """
-#     folder_path = EMBEDDINGS_BASE_PATH / model_name / "audio" / dataset_name
-
-#     if not folder_path.exists():
-#         raise HTTPException(
-#             status_code=404,
-#             detail=f"Dataset not found: {model_name}/{dataset_name}"
-#         )
-
-#     try:
-#         # Load all embeddings
-#         embeddings_data = load_embeddings_from_folder(folder_path)
-
-#         # Concatenate all embeddings
-#         all_embeddings = np.vstack([item["embeddings"] for item in embeddings_data])
-#         total_samples = len(all_embeddings)
-
-#         logger.info(f"Total embeddings shape: {all_embeddings.shape}")
-
-#         # Standardize once
-#         scaler = StandardScaler()
-#         embeddings_scaled = scaler.fit_transform(all_embeddings)
-
-#         # Generate steps with increasing PCA variance (simulating clustering)
-#         steps = []
-
-#         # Determine max components we can use (must be <= min(n_samples, n_features))
-#         max_components = min(total_samples, all_embeddings.shape[1])
-
-#         for step in range(n_steps):
-#             # Vary the amount of dimension reduction to simulate clustering progression
-#             if step == 0:
-#                 # First step: More random (use more components, then project to 3D)
-#                 # Use at most 50 components, but respect the max_components limit
-#                 n_components_first = min(50, max_components)
-
-#                 if n_components_first > 3:
-#                     pca = PCA(n_components=n_components_first)
-#                     intermediate = pca.fit_transform(embeddings_scaled)
-#                     # Add random noise to simulate initial disorder
-#                     noise_scale = 2.0
-#                     intermediate += np.random.randn(*intermediate.shape) * noise_scale
-#                     # Project to 3D
-#                     pca_3d = PCA(n_components=3)
-#                     coords = pca_3d.fit_transform(intermediate)
-#                 else:
-#                     # If we have very few samples, just use 3 components directly
-#                     pca = PCA(n_components=3)
-#                     coords = pca.fit_transform(embeddings_scaled)
-#                     # Add noise
-#                     coords += np.random.randn(*coords.shape) * 2.0
-#             else:
-#                 # Progressive clustering: reduce dimensions more aggressively
-#                 n_components_intermediate = max(3, min(30 - step * 7, max_components))
-#                 pca = PCA(n_components=n_components_intermediate)
-#                 intermediate = pca.fit_transform(embeddings_scaled)
-
-#                 if n_components_intermediate > 3:
-#                     # Further reduce to 3D
-#                     pca_3d = PCA(n_components=3)
-#                     coords = pca_3d.fit_transform(intermediate)
-#                 else:
-#                     coords = intermediate
-
-#                 # Scale down coordinates progressively to show clustering
-#                 scale_factor = 1.0 - (step * 0.15)
-#                 coords = coords * scale_factor
-
-#             # Normalize the coordinates to a reasonable range
-#             coords = coords * 3.0 / np.std(coords)
-
-#             steps.append(coords.tolist())
-
-#         return {
-#             "model": model_name,
-#             "dataset": dataset_name,
-#             "total_samples": total_samples,
-#             "n_steps": n_steps,
-#             "steps": steps
-#         }
-
-#     except Exception as e:
-#         logger.error(f"Error processing embeddings: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
-
 
 # ==================== Manager Endpoints ====================
 

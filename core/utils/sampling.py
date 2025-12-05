@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 from sklearn.neighbors import NearestNeighbors
 import logging
+from skactiveml.pool import UncertaintySampling
 
 logger = logging.getLogger(__name__)
 
