@@ -1,0 +1,54 @@
+Bootstrap: docker
+From: rockylinux/rockylinux:8.10
+
+%arguments
+    PYTHON_VERSION=3.11
+    NODE_MAJOR=22
+
+%post
+    cp /usr/bin/true /usr/sbin/useradd
+    cp /usr/bin/true /usr/sbin/groupadd
+
+    dnf -y update
+    
+    export PYTHON_VERSION={{PYTHON_VERSION}}
+    dnf install -y git curl
+    curl -fsSL https://rpm.nodesource.com/setup_{{NODE_MAJOR}}.x | bash -
+    dnf install -y nodejs
+
+    # Install uv, a python package manager
+    export UV_INSTALL_DIR=/usr/local/bin
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+
+    # Set environment variables for uv
+    export UV_LINK_MODE=copy
+    export UV_CACHE_DIR=/opt/uv
+    export UV_PYTHON_CACHE_DIR=/opt/uv
+    export UV_PYTHON_BIN_DIR=/opt/uv
+    export UV_PYTHON_INSTALL_DIR=/opt/uv
+    export UV_TOOL_BIN_DIR=/opt/uv
+    export UV_TOOL_DIR=/opt/uv
+
+    # Install python
+    uv python install "$PYTHON_VERSION"
+
+    # Create and activate a virtual environment
+    uv venv --python "$PYTHON_VERSION" /opt/myenv
+    . /opt/myenv/bin/activate
+    
+    cd /
+    git clone https://github.com/BenMcEwen1/BaseAL.git
+    cd BaseAL
+    UV_PROJECT_ENVIRONMENT=/opt/myenv uv sync
+
+    dnf -y clean all
+
+%environment
+    export PYTHON_VERSION={{PYTHON_VERSION}}
+    export UV_LINK_MODE=copy
+    export UV_CACHE_DIR=/opt/uv
+    export UV_PYTHON_CACHE_DIR=/opt/uv
+    export UV_PYTHON_BIN_DIR=/opt/uv
+    export UV_PYTHON_INSTALL_DIR=/opt/uv
+    export UV_TOOL_BIN_DIR=/opt/uv
+    export UV_TOOL_DIR=/opt/uv
