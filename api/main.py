@@ -41,8 +41,9 @@ app.add_middleware(
 
 # Base paths
 BASE_DIR = Path(__file__).parent.parent
-EMBEDDINGS_BASE_PATH = BASE_DIR / "results" / "test_data" / "embeddings"
-ANNOTATIONS_BASE_PATH = BASE_DIR / "results" / "test_data" / "evaluations"
+EMBEDDINGS_BASE_PATH = BASE_DIR / "data" / "embeddings"
+ANNOTATIONS_BASE_PATH = BASE_DIR / "data" / "evaluations"
+AUDIO_BASE_PATH = BASE_DIR / "data" 
 
 # Global active learner instance (for backward compatibility with single experiment)
 active_learner: Optional[ActiveLearner] = None
@@ -423,7 +424,7 @@ def get_manager_summary():
 
 
 @app.post("/api/manager/save")
-def save_manager_results(output_dir: str = "results/manager_experiments"):
+def save_manager_results(output_dir: str = "data/manager_experiments"):
     """
     Save all experiment results
 
@@ -725,7 +726,7 @@ def get_media(index: int):
         # Retrieve audio path from original index
         annotations = pd.read_csv(active_learner.annotations_path)
         audio_path = annotations['audiofilename'][original_index]
-        path = f'../test_data/{audio_path}'
+        path = AUDIO_BASE_PATH / audio_path
 
         logger.info(f"Loading audio from: {path}")
 

@@ -3,8 +3,8 @@
 experiments:
   # Experiment: Random Sampling
   - name: Random
-    embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
-    annotations_path: results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
+    embeddings_dir: data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
+    annotations_path: data/evaluations/birdnet/classification/default_classifier_annotations.csv
     model_name: birdnet
     dataset_name: esc50
     hidden_dim: null
@@ -16,8 +16,8 @@ experiments:
 
   # Experiment: Margin Sampling
   - name: Margin
-    embeddings_dir: results/test_data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
-    annotations_path:  results/test_data/evaluations/birdnet/classification/default_classifier_annotations.csv
+    embeddings_dir: data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
+    annotations_path:  data/evaluations/birdnet/classification/default_classifier_annotations.csv
     model_name: birdnet
     dataset_name: esc50
     hidden_dim: null  # Will default to input_dim
