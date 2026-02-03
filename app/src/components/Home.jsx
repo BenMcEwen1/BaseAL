@@ -152,7 +152,7 @@ export default function Home({ onGetStarted, onDocsClick }) {
             margin: 0,
             letterSpacing: '10px'
           }}>
-            Base<b style={{fontWeight: '500'}}>AL</b><p style={{fontSize: '12px', letterSpacing: '5px', paddingLeft: '5px'}}>v1.0.0</p>
+            Base<b style={{fontWeight: '500'}}>AL</b><p style={{fontSize: '12px', letterSpacing: '5px', paddingLeft: '5px'}}>v1.1.0</p>
           </h1>
         </div>
 

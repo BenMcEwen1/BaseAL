@@ -1,7 +1,10 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18467564.svg)](https://doi.org/10.5281/zenodo.18467564)
+
 <h1>
   <img src="app/public/baseAL_logo.png" alt="Logo" width="35" height="30">
   BaseAL - Active Learning Baseline
 </h1>
+
 
 >BaseAL is an framework for developing and evaluating active learning methods. BaseAL (v1.0.0) currently focuses on audio and bioacoustic data. 
 
@@ -91,6 +94,35 @@ apptainer shell --bind /any/required/paths:/mnt baseal.sif
 ```
 
 ### 3. run the same commands as in the Quick Start section above.
+
+## Citation
+
+If you use this software, please cite:
+```bibtex
+@software{mcewen_baseal,
+  author={McEwen, Ben and Zhang, Shiqi},
+  title={{BaseAL}: Active Learning Baseline},
+  year=2026,
+  version={v1.1.0},
+  publisher={Zenodo},
+  doi={10.5281/zenodo.18467564},
+  url={https://doi.org/10.5281/zenodo.18467564}
+}
+```
+
+### Contributions and Authorship
+
+Contributions are welcome! Please contact [Ben McEwen](benmcewen@outlook.com) to discuss potential contributions.
+
+Contributors who make a substantial contribution will be recognised as authors in the citable DOI for subsequent releases. 
+
+Substantial contributions include:
+- Implementing a major feature or new functionality
+- Significant refactoring or performance improvements
+- Comprehensive documentation or tutorials
+- Bug fixes that resolve critical issues
+
+Minor contributions (small bug fixes, typos, formatting) will be acknowledged in the release notes.
 
 ## Acknowledgments
 
