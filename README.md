@@ -3,9 +3,7 @@
   BaseAL - Active Learning Baseline
 </h1>
 
-## Overview
-
-BaseAL is an framework for developing and evaluating active learning methods. BaseAL (v1.0.0) currently focuses on audio and bioacoustic data. 
+>BaseAL is an framework for developing and evaluating active learning methods. BaseAL (v1.0.0) currently focuses on audio and bioacoustic data. 
 
 The tool provides a complete pipeline for evaluating sampling strategies and 3D visualisation.
 
@@ -19,17 +17,9 @@ The tool provides a complete pipeline for evaluating sampling strategies and 3D 
 - **Multiple Sampling Strategies**: Compare different sampling and diversification strategies
 - **Model Integration**: Built on [Bacpipe](https://github.com/bioacoustic-ai/bacpipe) for seamless integration with bioacoustic models
 
+**For BaseAL compatible dataset generation see the [dataset generator](https://github.com/BenMcEwen1/dataset-generator). You can download the ESC50 demo data [here](https://drive.google.com/file/d/183yLkZ1G8W3nXESkxcs1NERPGuFhofXu/view?usp=sharing).*
 
-# Setup
-
-## Prerequisites
-
-- **Python**: 3.11 or 3.12
-- **uv**: Package manager ([installation guide](https://docs.astral.sh/uv/getting-started/installation/))
-- **Node.js**: 16.x or higher
-- **npm**: 8.x or higher
-
-## Installation
+## Setup
 
 ### 1. Clone the Repository
 
@@ -51,7 +41,6 @@ uv sync
 ```bash
 cd app
 npm install
-cd ..
 ```
 
 ## Quick Start

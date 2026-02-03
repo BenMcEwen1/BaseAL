@@ -381,6 +381,9 @@ class ActiveLearner:
         self.device = device
         self.repeats = repeats
 
+        # Audio directory for media retrieval (new format: {dataset}/data/{model_name}/)
+        self.audio_dir = Path(annotations_path).parent / "data" / model_name
+
         self.dim_reduction_method = "UMAP"
         self.umap_transform_batch_size = 500
         self.idx = None
@@ -452,7 +455,7 @@ class ActiveLearner:
         self.reducer = None
         self.scaler = None
 
-        logger.info(f"Initialized ActiveLearner with {len(self.embeddings)} samples and {num_classes} classes")
+        logger.info(f"Initialised ActiveLearner with {len(self.embeddings)} samples and {num_classes} classes")
 
     def _load_data(self) -> Tuple[np.ndarray, np.ndarray, Dict, Dict, pd.DataFrame]:
         """
@@ -478,7 +481,7 @@ class ActiveLearner:
         sys.stderr.flush()
 
         # Detect if data is multilabel by checking for semicolons in labels
-        label_column = 'label:default_classifier'
+        label_column = 'label'
         sample_labels = df[label_column].astype(str) #.head(100)
         is_multilabel = sample_labels.str.contains(';').any()
 
@@ -513,7 +516,7 @@ class ActiveLearner:
 
         # Map audio filenames to embeddings
         for _, row in df.iterrows():
-            audio_filename = row['audiofilename']
+            audio_filename = row['filename']
             label_str = str(row[label_column])
 
             # Construct embedding filename
@@ -524,40 +527,38 @@ class ActiveLearner:
             embedding_path = self.embeddings_dir / embedding_filename
 
             if embedding_path.exists():
-                # Load embedding for this segment
+                # Load embedding - new format: each file is a single segment embedding
                 emb = np.load(embedding_path)
 
-                # Calculate which segment this row corresponds to
-                start_time = row['start']
-                segment_duration = 3.0  # Assuming 3-second segments
-                segment_idx = int(start_time / segment_duration)
+                # Handle both 1D (single embedding) and 2D (batch of 1) shapes
+                if emb.ndim == 1:
+                    embeddings_list.append(emb)
+                else:
+                    embeddings_list.append(emb[0] if len(emb) == 1 else emb.flatten())
 
-                if segment_idx < len(emb):
-                    embeddings_list.append(emb[segment_idx])
-
-                    # Parse labels based on format
-                    if ';' in label_str:
-                        # Multilabel: create binary vector
+                # Parse labels based on format
+                if ';' in label_str:
+                    # Multilabel: create binary vector
+                    label_vector = np.zeros(num_classes, dtype=np.float32)
+                    for lbl in label_str.split(';'):
+                        lbl = lbl.strip()
+                        if lbl in label_to_idx:
+                            label_vector[label_to_idx[lbl]] = 1.0
+                    labels_list.append(label_vector)
+                else:
+                    # Single-label: use integer index
+                    if is_multilabel:
+                        # If dataset is multilabel but this sample has single label,
+                        # still use binary vector format for consistency
                         label_vector = np.zeros(num_classes, dtype=np.float32)
-                        for lbl in label_str.split(';'):
-                            lbl = lbl.strip()
-                            if lbl in label_to_idx:
-                                label_vector[label_to_idx[lbl]] = 1.0
+                        label_vector[label_to_idx[label_str]] = 1.0
                         labels_list.append(label_vector)
                     else:
-                        # Single-label: use integer index
-                        if is_multilabel:
-                            # If dataset is multilabel but this sample has single label,
-                            # still use binary vector format for consistency
-                            label_vector = np.zeros(num_classes, dtype=np.float32)
-                            label_vector[label_to_idx[label_str]] = 1.0
-                            labels_list.append(label_vector)
-                        else:
-                            # Pure single-label dataset
-                            labels_list.append(label_to_idx[label_str])
+                        # Pure single-label dataset
+                        labels_list.append(label_to_idx[label_str])
 
-                    # Store the annotation row for this sample
-                    annotations_list.append(row)
+                # Store the annotation row for this sample
+                annotations_list.append(row)
 
         embeddings = np.array(embeddings_list, dtype=np.float32)
 

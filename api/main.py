@@ -725,8 +725,9 @@ def get_media(index: int):
 
         # Retrieve audio path from original index
         annotations = pd.read_csv(active_learner.annotations_path)
-        audio_path = annotations['audiofilename'][original_index]
-        path = AUDIO_BASE_PATH / audio_path
+        audio_filename = annotations['filename'][original_index]
+        path = active_learner.audio_dir / audio_filename
+        
 
         logger.info(f"Loading audio from: {path}")
 
