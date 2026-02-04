@@ -3,10 +3,8 @@
 experiments:
   # New Data format
   - name: Random
-    embeddings_dir: ESC50_BASEAL/embeddings/birdnet/
-    annotations_path: ESC50_BASEAL/labels.csv
-    # model_name: birdnet
-    # dataset_name: esc50
+    embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
+    annotations_path: ESC10_BASEAL/labels.csv
     hidden_dim: null
     sampling_strategy: random
     learning_rate: 0.001
@@ -14,11 +12,9 @@ experiments:
     device: cpu
     pretrain_samples: null 
 
-  - name: Margin
+  - name: Random (ESC50)
     embeddings_dir: ESC50_BASEAL/embeddings/birdnet/
     annotations_path: ESC50_BASEAL/labels.csv
-    # model_name: birdnet
-    # dataset_name: esc50
     hidden_dim: null
     sampling_strategy: margin
     learning_rate: 0.001
@@ -26,29 +22,12 @@ experiments:
     device: cpu
     pretrain_samples: null 
 
-
-  # # Experiment: Random Sampling
-  # - name: Random
-  #   embeddings_dir: data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
-  #   annotations_path: data/evaluations/birdnet/classification/default_classifier_annotations.csv
-  #   model_name: birdnet
-  #   dataset_name: esc50
+  # - name: Margin
+  #   embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
+  #   annotations_path: ESC10_BASEAL/labels.csv
   #   hidden_dim: null
-  #   sampling_strategy: random
+  #   sampling_strategy: margin
   #   learning_rate: 0.001
   #   repeats: 2
   #   device: cpu
-  #   pretrain_samples: null  # Optional: omit or set to null to skip pre-training
-
-  # # Experiment: Margin Sampling
-  # - name: Margin
-  #   embeddings_dir: data/embeddings/2025-11-13_21-42___birdnet-test_data/audio/esc50
-  #   annotations_path:  data/evaluations/birdnet/classification/default_classifier_annotations.csv
-  #   model_name: birdnet
-  #   dataset_name: esc50
-  #   hidden_dim: null  # Will default to input_dim
-  #   sampling_strategy: margin
-  #   learning_rate: 0.001
-  #   repeats: 2 # Number of iterations per AL cycle to compute mean and SD, default is 1.
-  #   device: cpu
-  #   pretrain_samples: null  # Pre-select 10 high-density samples for warm-up training
+  #   pretrain_samples: null 

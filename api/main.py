@@ -116,7 +116,7 @@ def load_embeddings_from_folder(folder_path: Path) -> List[Dict[str, Any]]:
 
 @app.get("/")
 def info():
-    return {"message": "BaseAL Embeddings API", "version": "1.0.0"}
+    return {"message": "BaseAL Embeddings API", "version": "1.1.0"}
 
 # @app.get("/api/generate")
 # def generate_embeddings():

@@ -426,7 +426,6 @@ class ActiveLearner:
         # Loss function - select based on single-label vs multilabel
         if self.is_multilabel:
             # Multilabel: Binary Cross-Entropy with Logits
-            # BCEWithLogitsLoss combines sigmoid + BCE for numerical stability
             self.criterion = nn.BCEWithLogitsLoss()
             logger.info("Using BCEWithLogitsLoss for multilabel classification")
         else:

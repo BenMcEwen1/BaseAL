@@ -1,6 +1,6 @@
 import Promote from "./Promote";
 
-export default function Home({ onGetStarted, onDocsClick }) {
+export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
   return (
     <div style={{
       width: '100vw',
@@ -52,6 +52,25 @@ export default function Home({ onGetStarted, onDocsClick }) {
           display: 'flex',
           gap: '20px'
         }}>
+          <button
+            onClick={onChallengesClick}
+            style={{
+              color: '#fff',
+              textDecoration: 'none',
+              padding: '10px 20px',
+              background: 'rgba(255, 255, 255, 0.2)',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'background 0.2s',
+              cursor: 'pointer'
+            }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.4)'}
+            onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+          >
+            Challenges
+          </button>
           <button
             onClick={onDocsClick}
             style={{

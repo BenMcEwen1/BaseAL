@@ -2,26 +2,62 @@ import React, { useRef, useState, useEffect } from 'react';
 import Home from './components/Home';
 import ALTool from './components/ALTool';
 import Axes from './components/Axes'
-import AnalyticsV2 from './components/AnalyticsV2';
+// import AnalyticsV2 from './components/AnalyticsV2';
 import Docs from './components/Docs';
+import Challenges from './components/Challenges';
+
+// Parse hash to get current route
+const parseHash = () => {
+  const hash = window.location.hash.slice(1); // Remove leading #
+  const parts = hash.split('/').filter(Boolean);
+  return {
+    section: parts[0] || null,  // e.g., 'challenges', 'docs'
+    page: parts[1] || null,     // e.g., 'biodcase'
+  };
+};
 
 export default function App() {
   const alToolRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const [axesOpacity, setAxesOpacity] = useState(0);
-  const [docsOpen, setDocsOpen] = useState(false);
+  const [route, setRoute] = useState(parseHash());
+
+  // Derived state from route
+  const docsOpen = route.section === 'docs';
+  const challengesOpen = route.section === 'challenges';
+  const challengePage = route.page;
 
   const handleGetStarted = () => {
     alToolRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleChallengesOpen = (page) => {
+    // If called from onClick, page will be an event object - use default
+    const pageName = (typeof page === 'string') ? page : 'biodcase';
+    window.location.hash = `/challenges/${pageName}`;
+  };
+
+  const handleChallengesClose = () => {
+    window.location.hash = '';
+  };
+
   const handleDocsOpen = () => {
-    setDocsOpen(true);
+    window.location.hash = '/docs';
   };
 
   const handleDocsClose = () => {
-    setDocsOpen(false);
+    window.location.hash = '';
   };
+
+  // Listen for hash changes (browser back/forward)
+  useEffect(() => {
+    const handleHashChange = () => {
+      setRoute(parseHash());
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -77,7 +113,7 @@ export default function App() {
 
       {/* Home Page Section */}
       <div style={{ scrollSnapAlign: 'start' }}>
-        <Home onGetStarted={handleGetStarted} onDocsClick={handleDocsOpen} />
+        <Home onGetStarted={handleGetStarted} onDocsClick={handleDocsOpen} onChallengesClick={handleChallengesOpen} />
       </div>
 
       {/* AL Tool Section */}
@@ -87,6 +123,10 @@ export default function App() {
 
       {/* Docs Overlay */}
       <Docs isOpen={docsOpen} onClose={handleDocsClose} />
+
+      {/* Challenges overlay */}
+      <Challenges isOpen={challengesOpen} onClose={handleChallengesClose} page={challengePage} />
+
     </div>
   );
 }
