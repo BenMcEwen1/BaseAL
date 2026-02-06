@@ -35,7 +35,7 @@ export default function ComparisonChart({ experimentsData, selectedMetric, onMet
                 padding: '12px 20px',
                 borderRadius: '8px',
                 color: 'white',
-                fontSize: '14px'
+                fontSize: '11px'
             }}>
                 No experiment data available yet
             </div>
@@ -150,7 +150,7 @@ export default function ComparisonChart({ experimentsData, selectedMetric, onMet
                 display: true,
                 text: `${metricInfo.label} Comparison Across Experiments`,
                 color: 'white',
-                font: { size: 16 }
+                font: { size: 13 }
             },
             legend: {
                 labels: {
@@ -241,7 +241,7 @@ export default function ComparisonChart({ experimentsData, selectedMetric, onMet
             }}>
                 <div style={{
                     color: 'white',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     fontWeight: 'bold',
                     marginBottom: '5px'
                 }}>
@@ -256,7 +256,7 @@ export default function ComparisonChart({ experimentsData, selectedMetric, onMet
                         border: '1px solid #444444',
                         borderRadius: '4px',
                         padding: '8px',
-                        fontSize: '14px',
+                        fontSize: '11px',
                         cursor: 'pointer',
                         outline: 'none'
                     }}

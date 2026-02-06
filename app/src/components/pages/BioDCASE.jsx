@@ -94,7 +94,7 @@ function TeamMemberCard({ member }) {
       style={{
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: '12px',
-        padding: '20px',
+        padding: '40px',
         textAlign: 'center',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
@@ -118,7 +118,7 @@ function TeamMemberCard({ member }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '32px',
+        fontSize: '26px',
         color: 'rgba(255, 255, 255, 0.5)',
         overflow: 'hidden'
       }}>
@@ -128,7 +128,7 @@ function TeamMemberCard({ member }) {
       {/* Name */}
       <h4 style={{
         margin: '0 0 5px 0',
-        fontSize: '1.1rem',
+        fontSize: '0.875rem',
         color: 'white'
       }}>
         {member.name}
@@ -137,7 +137,7 @@ function TeamMemberCard({ member }) {
       {/* Affiliation */}
       <p style={{
         margin: '0 0 10px 0',
-        fontSize: '0.85rem',
+        fontSize: '0.7rem',
         color: 'rgba(255, 255, 255, 0.7)',
         fontStyle: 'italic'
       }}>
@@ -187,7 +187,7 @@ function TeamMemberCard({ member }) {
       {member.contact && (
         <p style={{
           margin: '0 0 10px 0',
-          fontSize: '0.8rem',
+          fontSize: '0.65rem',
           color: 'rgba(255, 255, 255, 0.6)',
         }}>
           {member.contact}
@@ -202,7 +202,7 @@ function TeamMemberCard({ member }) {
       }}>
         <p style={{
           margin: '10px 0 0 20px',
-          fontSize: '0.9rem',
+          fontSize: '0.7rem',
           color: 'rgba(255, 255, 255, 0.8)',
           textAlign: 'left',
           lineHeight: '1.5'
@@ -213,7 +213,7 @@ function TeamMemberCard({ member }) {
 
       {/* Expand indicator */}
       <span style={{
-        fontSize: '0.75rem',
+        fontSize: '0.6rem',
         color: 'rgba(255, 255, 255, 0.5)',
         marginTop: '8px',
         display: 'block'
@@ -318,11 +318,11 @@ function Timeline() {
               justifyContent: 'center',
               boxShadow: hasLaunched ? '0 0 15px rgba(74, 226, 144, 0.4)' : 'none',
             }}>
-              <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#4ae290' }}>1</span>
-              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Apr</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#4ae290' }}>1</span>
+              <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Apr</span>
             </div>
             <span style={{
-              fontSize: '0.8rem',
+              fontSize: '0.65rem',
               fontWeight: '600',
               color: '#4ae290',
               textTransform: 'uppercase',
@@ -350,11 +350,11 @@ function Timeline() {
               justifyContent: 'center',
               boxShadow: hasClosed ? '0 0 15px rgba(226, 74, 74, 0.4)' : (hasLaunched ? '0 0 15px rgba(74, 180, 226, 0.3)' : 'none'),
             }}>
-              <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: hasClosed ? '#e24a4a' : '#4ab4e2' }}>15</span>
-              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Jun</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: hasClosed ? '#e24a4a' : '#4ab4e2' }}>15</span>
+              <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Jun</span>
             </div>
             <span style={{
-              fontSize: '0.8rem',
+              fontSize: '0.65rem',
               fontWeight: '600',
               color: hasClosed ? '#e24a4a' : '#4ab4e2',
               textTransform: 'uppercase',
@@ -373,7 +373,7 @@ function Timeline() {
         }}>
           {hasClosed ? (
             <span style={{
-              fontSize: '1rem',
+              fontSize: '0.8rem',
               fontWeight: 'bold',
               color: '#e24a4a',
             }}>
@@ -381,11 +381,11 @@ function Timeline() {
             </span>
           ) : (
             <>
-              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>
+              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem' }}>
                 {hasLaunched ? 'Submissions close in ' : 'Challenge launches in '}
               </span>
               <span style={{
-                fontSize: '1.1rem',
+                fontSize: '0.875rem',
                 fontWeight: 'bold',
                 color: hasLaunched ? '#4ab4e2' : '#4ae290',
               }}>
@@ -402,18 +402,18 @@ function Timeline() {
 export default function BioDCASE() {
   return (
     <div style={{
-      padding: '40px',
+      padding: '60px',
       maxWidth: '900px',
       margin: '0 auto',
       color: 'white'
     }}>
-        <h2 style={{fontSize: '18px', color: 'grey'}}>BioDCASE 2026</h2>
+        <h2 style={{fontSize: '14px', color: 'grey'}}>BioDCASE 2026</h2>
         <h1>Active Learning for Bioacoustics</h1>
 
         <tag>Active Learning, Bioacoustics</tag>
 
         <p>A fundamental challenge across bioacoustics domains (terrestrial and marine) is the annotation of unlabelled data. Passive acoustic monitoring systems generate vast amounts of data, but only a small portion can be feasibly annotated by expert human annotators. Since model performance depends heavily on the quality and quantity of labelled data, this raises the following research question:</p> 
-        <p style={{fontSize: '18px', color: "rgb(171 171 171)", padding: '0px 100px 0px 10px'}}>Given vast amounts of raw acoustic data and limited annotation resources, which data should be prioritised for labelling?</p>
+        <p style={{fontSize: '14px', color: "rgb(171 171 171)", padding: '0px 100px 0px 10px'}}>Given vast amounts of raw acoustic data and limited annotation resources, which data should be prioritised for labelling?</p>
         <p>Active learning (AL) is a critical strategy for scaling bioacoustic monitoring. AL is an iterative method of data selection, annotation and model training also often within a human-in-the-loop framework. Fundamentally, AL aims to optimise for a learning objective (e.g. model performance) using less labeled data minimising annotation requirements. Participants will design an active learning strategy (acquisition function) to maximise training efficiency across batches of multi-label data considering informativeness quantification, diversification, long-tail performance and cross-domain generalisation.</p>
 
         <h3>About BioDCASE</h3>

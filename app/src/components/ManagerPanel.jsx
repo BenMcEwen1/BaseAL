@@ -278,10 +278,10 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
           borderRadius: '8px',
           color: 'white'
         }}>
-          <div style={{ marginBottom: '14px', fontSize: '16px', fontWeight: 'bold' }}>
+          <div style={{ marginBottom: '14px', fontSize: '13px', fontWeight: 'bold' }}>
             Initialise Manager
           </div>
-          <div style={{ marginBottom: '14px', fontSize: '14px', color: '#ccc' }}>
+          <div style={{ marginBottom: '14px', fontSize: '11px', color: '#ccc' }}>
             Choose how you want to set up your experiments:
           </div>
 
@@ -293,13 +293,13 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
               borderRadius: '4px',
               marginBottom: '14px'
             }}>
-              <div style={{ marginBottom: '10px', fontSize: '15px', fontWeight: 'bold' }}>
+              <div style={{ marginBottom: '10px', fontSize: '12px', fontWeight: 'bold' }}>
                 Load from Configuration File
               </div>
               {initMode === 'config' ? (
                 <>
                   <div style={{ marginBottom: '14px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '11px' }}>
                       Config Path:
                     </label>
                     <input
@@ -313,7 +313,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                         border: '1px solid #444',
                         background: '#0a0a0a',
                         color: 'white',
-                        fontSize: '14px'
+                        fontSize: '11px'
                       }}
                     />
                   </div>
@@ -324,7 +324,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                       style={{
                         flex: 1,
                         padding: '14px',
-                        fontSize: '14px',
+                        fontSize: '11px',
                         background: loading ? '#666' : '#e24a90',
                         color: 'white',
                         border: 'none',
@@ -340,7 +340,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                       disabled={loading}
                       style={{
                         padding: '14px 20px',
-                        fontSize: '14px',
+                        fontSize: '11px',
                         background: '#444',
                         color: 'white',
                         border: 'none',
@@ -358,7 +358,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                   style={{
                     width: '100%',
                     padding: '14px',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     background: '#4a90e2',
                     color: 'white',
                     border: 'none',
@@ -380,12 +380,12 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
               padding: '14px',
               borderRadius: '4px'
             }}>
-              <div style={{ marginBottom: '10px', fontSize: '15px', fontWeight: 'bold' }}>
+              <div style={{ marginBottom: '10px', fontSize: '12px', fontWeight: 'bold' }}>
                 Manual Configuration
               </div>
               {initMode === 'manual' ? (
                 <>
-                  <div style={{ marginBottom: '14px', fontSize: '13px', color: '#aaa' }}>
+                  <div style={{ marginBottom: '14px', fontSize: '10px', color: '#aaa' }}>
                     Start with an empty manager and add experiments manually.
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -394,7 +394,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                       style={{
                         flex: 1,
                         padding: '14px',
-                        fontSize: '14px',
+                        fontSize: '11px',
                         background: '#4ae290',
                         color: '#000',
                         border: 'none',
@@ -409,7 +409,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                       onClick={() => setInitMode(null)}
                       style={{
                         padding: '14px 20px',
-                        fontSize: '14px',
+                        fontSize: '11px',
                         background: '#444',
                         color: 'white',
                         border: 'none',
@@ -427,7 +427,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                   style={{
                     width: '100%',
                     padding: '14px',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     background: '#4a90e2',
                     color: 'white',
                     border: 'none',
@@ -452,7 +452,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
           borderRadius: '8px',
           color: 'white'
         }}>
-          <div style={{ marginBottom: '14px', fontSize: '16px', fontWeight: 'bold' }}>
+          <div style={{ marginBottom: '14px', fontSize: '13px', fontWeight: 'bold' }}>
             Experiments {experiments.length > 0 ? `(${experiments.length})` : ''}
           </div>
           {experiments.length > 0 ? (
@@ -466,7 +466,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     background: selectedExperimentIndex === idx ? '#4ae290' : 'rgba(0, 0, 0, 0.1)',
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '13px',
+                    fontSize: '10px',
                     color: selectedExperimentIndex === idx ? '#000' : '#fff'
                   }}
                 >
@@ -480,7 +480,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
               padding: '14px',
               background: 'rgba(255, 255, 255, 0.2)',
               borderRadius: '4px',
-              fontSize: '13px',
+              fontSize: '10px',
               color: '#aaa',
               textAlign: 'center'
             }}>
@@ -494,7 +494,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
               width: '100%',
               marginTop: '14px',
               padding: '10px',
-              fontSize: '13px',
+              fontSize: '10px',
               background: '#4a90e2',
               color: 'white',
               border: 'none',
@@ -513,7 +513,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
               borderRadius: '4px'
             }}>
               <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px' }}>
                   Name:
                 </label>
                 <input
@@ -527,12 +527,12 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     border: '1px solid #444',
                     background: '#0a0a0a',
                     color: 'white',
-                    fontSize: '14px'
+                    fontSize: '11px'
                   }}
                 />
               </div>
               <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px' }}>
                   Embedding Model:
                 </label>
                 <select
@@ -545,7 +545,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     border: '1px solid #444',
                     background: '#0a0a0a',
                     color: 'white',
-                    fontSize: '14px'
+                    fontSize: '11px'
                   }}
                 >
                   {availableModels.map((model) => (
@@ -556,7 +556,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                 </select>
               </div>
               <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px' }}>
                   Learning Rate:
                 </label>
                 <input
@@ -571,12 +571,12 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     border: '1px solid #444',
                     background: '#0a0a0a',
                     color: 'white',
-                    fontSize: '14px'
+                    fontSize: '11px'
                   }}
                 />
               </div>
               {/* <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px' }}>
                   Uncertainty Quantification:
                 </label>
                 <input
@@ -591,12 +591,12 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     border: '1px solid #444',
                     background: '#0a0a0a',
                     color: 'white',
-                    fontSize: '14px'
+                    fontSize: '11px'
                   }}
                 />
               </div> */}
               <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px' }}>
                   Sampling Method:
                 </label>
                 <input
@@ -611,12 +611,12 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     border: '1px solid #444',
                     background: '#0a0a0a',
                     color: 'white',
-                    fontSize: '14px'
+                    fontSize: '11px'
                   }}
                 />
               </div>
               {/* <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px' }}>
                   Diversification Method:
                 </label>
                 <input
@@ -631,7 +631,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     border: '1px solid #444',
                     background: '#0a0a0a',
                     color: 'white',
-                    fontSize: '14px'
+                    fontSize: '11px'
                   }}
                 />
               </div> */}
@@ -641,7 +641,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                 style={{
                   width: '100%',
                   padding: '8px',
-                  fontSize: '14px',
+                  fontSize: '11px',
                   background: loading ? '#666' : '#4ae290',
                   color: loading ? 'white' : '#000',
                   border: 'none',
@@ -665,13 +665,13 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
           borderRadius: '8px',
           color: 'white'
         }}>
-          <div style={{ marginBottom: '14px', fontSize: '16px', fontWeight: 'bold' }}>
+          <div style={{ marginBottom: '14px', fontSize: '13px', fontWeight: 'bold' }}>
             Run Manager Cycle
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px' }}>
                 Samples:
               </label>
               <input
@@ -685,12 +685,12 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                   border: '1px solid #444',
                   background: 'rgba(0, 0, 0, 0.1)',
                   color: 'white',
-                  fontSize: '14px'
+                  fontSize: '11px'
                 }}
               />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px' }}>
                 Epochs:
               </label>
               <input
@@ -704,14 +704,14 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                   border: '1px solid #444',
                   background: 'rgba(0, 0, 0, 0.1)',
                   color: 'white',
-                  fontSize: '14px'
+                  fontSize: '11px'
                 }}
               />
             </div>
           </div>
 
           <div style={{ marginBottom: '14px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', fontSize: '13px', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', fontSize: '10px', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={runSettings.parallel}
@@ -730,7 +730,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
               style={{
                 width: '100%',
                 padding: '14px',
-                fontSize: '14px',
+                fontSize: '11px',
                 background: isCancelling ? '#999' : '#e24a4a',
                 color: 'white',
                 border: 'none',
@@ -751,7 +751,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                   style={{
                     flex: 1,
                     padding: '14px',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     background: loading ? '#666' : '#4ae290',
                     color: loading ? 'white' : '#000',
                     border: 'none',
@@ -770,7 +770,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                   style={{
                     width: '36px',
                     padding: '14px 8px',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     background: loading ? '#666' : '#4ae290',
                     color: loading ? 'white' : '#000',
                     border: 'none',
@@ -809,7 +809,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     style={{
                       width: '100%',
                       padding: '14px',
-                      fontSize: '14px',
+                      fontSize: '11px',
                       background: 'transparent',
                       color: '#000',
                       border: 'none',
@@ -829,7 +829,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
           )}
 
           {runResults && (
-            <div style={{ marginTop: '14px', fontSize: '14px' }}>
+            <div style={{ marginTop: '14px', fontSize: '11px' }}>
               <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Last Cycle Results:</div>
               {Object.entries(runResults).map(([name, metrics]) => (
                 <div key={name} style={{ marginBottom: '4px', padding: '6px', background: 'rgba(0, 0, 0, 0.1)', borderRadius: '4px' }}>
@@ -855,7 +855,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
           disabled={loading}
           style={{
             padding: '14px',
-            fontSize: '14px',
+            fontSize: '11px',
             background: loading ? '#666' : '#4a90e2',
             color: 'white',
             border: 'none',
@@ -874,7 +874,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
           padding: '10px',
           background: '#ff4444',
           borderRadius: '4px',
-          fontSize: '14px',
+          fontSize: '11px',
           color: 'white'
         }}>
           {error}

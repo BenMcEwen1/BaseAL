@@ -269,7 +269,7 @@ export default function ALTool() {
 
       {/* Left Panel */}
       <div style={{
-        width: 'min(33.33%, 500px)',
+        width: 'min(33.33%, 400px)',
         height: '100vh',
         padding: '15px 20px',
         display: 'flex',
@@ -293,7 +293,7 @@ export default function ALTool() {
               border: 'none',
               borderBottom: activeTab === 'controls' ? '2px solid #4ae290' : '2px solid transparent',
               cursor: 'pointer',
-              fontSize: '16px',
+              fontSize: '13px',
               fontWeight: 'bold'
             }}
           >
@@ -309,7 +309,7 @@ export default function ALTool() {
               border: 'none',
               borderBottom: activeTab === 'manager' ? '2px solid #4ae290' : '2px solid transparent',
               cursor: 'pointer',
-              fontSize: '16px',
+              fontSize: '13px',
               fontWeight: 'bold'
             }}
           >
@@ -325,7 +325,7 @@ export default function ALTool() {
               border: 'none',
               borderBottom: activeTab === 'settings' ? '2px solid #4ae290' : '2px solid transparent',
               cursor: 'pointer',
-              fontSize: '16px',
+              fontSize: '13px',
               fontWeight: 'bold'
             }}
           >
@@ -350,13 +350,13 @@ export default function ALTool() {
               borderRadius: '8px',
               color: 'white'
             }}>
-              <div style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 'bold' }}>
+              <div style={{ marginBottom: '20px', fontSize: '13px', fontWeight: 'bold' }}>
                 Visualization Settings
               </div>
 
               {/* Dimension Reduction Method */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 'bold' }}>
                   Dimension Reduction Method:
                 </label>
                 <select
@@ -369,7 +369,7 @@ export default function ALTool() {
                     border: '1px solid #444444',
                     background: 'rgba(47, 44, 58, 1)',
                     color: 'white',
-                    fontSize: '14px'
+                    fontSize: '11px'
                   }}
                 >
                   <option value="UMAP">UMAP</option>
@@ -379,7 +379,7 @@ export default function ALTool() {
 
               {/* Projection Method */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 'bold' }}>
                   Projection Method:
                 </label>
                 <select
@@ -392,7 +392,7 @@ export default function ALTool() {
                     border: '1px solid #444',
                     background: 'rgba(47, 44, 58, 1)',
                     color: 'white',
-                    fontSize: '14px'
+                    fontSize: '11px'
                   }}
                 >
                   <option value="euclidean">Euclidean</option>
@@ -409,7 +409,7 @@ export default function ALTool() {
                 style={{
                   width: '100%',
                   padding: '14px',
-                  fontSize: '14px',
+                  fontSize: '11px',
                   background: loading ? '#666' : '#4ae290',
                   color: loading ? 'white' : '#000',
                   border: 'none',
@@ -427,7 +427,7 @@ export default function ALTool() {
                   padding: '10px',
                   background: '#ff4444',
                   borderRadius: '4px',
-                  fontSize: '12px'
+                  fontSize: '10px'
                 }}>
                   {error}
                 </div>
@@ -496,7 +496,7 @@ export default function ALTool() {
               border: 'none',
               borderRadius: '8px',
               padding: '12px 24px',
-              fontSize: '14px',
+              fontSize: '11px',
               fontWeight: 'bold',
               cursor: 'pointer',
               zIndex: 5,

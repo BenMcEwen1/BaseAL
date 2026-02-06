@@ -34,7 +34,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
                 padding: '12px 20px',
                 borderRadius: '8px',
                 color: 'white',
-                fontSize: '14px'
+                fontSize: '11px'
             }}>
                 No training data available yet
             </div>
@@ -175,7 +175,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
                 display: true,
                 text: 'Training Loss',
                 color: 'white',
-                font: { size: 16 }
+                font: { size: 13 }
             },
             legend: {
                 labels: {
@@ -246,7 +246,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
                 display: true,
                 text: metricInfo.label,
                 color: 'white',
-                font: { size: 16 }
+                font: { size: 13 }
             },
             legend: {
                 labels: {

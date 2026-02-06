@@ -51,7 +51,7 @@ export default function Viewer({mediaID, setID}) {
                                 border: 'none',
                                 color: '#fff',
                                 cursor: 'pointer',
-                                fontSize: '18px'
+                                fontSize: '14px'
                             }}
                             onClick={() => setID(null)}
                         >

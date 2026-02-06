@@ -34,7 +34,7 @@ export default function ReliabilityChart({ trainingHistory }) {
                 padding: '12px 20px',
                 borderRadius: '8px',
                 color: 'white',
-                fontSize: '14px'
+                fontSize: '11px'
             }}>
                 No calibration data available yet
             </div>
@@ -51,7 +51,7 @@ export default function ReliabilityChart({ trainingHistory }) {
                 padding: '12px 20px',
                 borderRadius: '8px',
                 color: 'white',
-                fontSize: '14px'
+                fontSize: '11px'
             }}>
                 Calibration data not available for this experiment
             </div>
@@ -120,7 +120,7 @@ export default function ReliabilityChart({ trainingHistory }) {
                 display: true,
                 text: `Reliability Diagram (ECE: ${ece.toFixed(4)})`,
                 color: 'white',
-                font: { size: 16 }
+                font: { size: 13 }
             },
             legend: {
                 labels: {
@@ -154,7 +154,7 @@ export default function ReliabilityChart({ trainingHistory }) {
                     display: true,
                     text: 'Predicted Confidence',
                     color: 'white',
-                    font: { size: 14 }
+                    font: { size: 11 }
                 },
                 ticks: {
                     color: 'white',
@@ -175,7 +175,7 @@ export default function ReliabilityChart({ trainingHistory }) {
                     display: true,
                     text: 'Actual Accuracy',
                     color: 'white',
-                    font: { size: 14 }
+                    font: { size: 11 }
                 },
                 ticks: {
                     color: 'white',
@@ -205,7 +205,7 @@ export default function ReliabilityChart({ trainingHistory }) {
                 padding: '8px',
                 background: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: '4px',
-                fontSize: '12px',
+                fontSize: '10px',
                 color: 'rgba(255, 255, 255, 0.8)'
             }}>
                 Expected Calibration Error (ECE): <strong>{ece.toFixed(4)}</strong> |

@@ -96,7 +96,7 @@ export default function NotebookRenderer({ notebookPath }) {
               h1: ({node, ...props}) => (
                 <h1 style={{
                   color: '#fff',
-                  fontSize: '32px',
+                  fontSize: '26px',
                   marginTop: '0',
                   marginBottom: '16px',
                   fontWeight: '600'
@@ -105,7 +105,7 @@ export default function NotebookRenderer({ notebookPath }) {
               h2: ({node, ...props}) => (
                 <h2 style={{
                   color: '#fff',
-                  fontSize: '24px',
+                  fontSize: '19px',
                   marginTop: '24px',
                   marginBottom: '12px',
                   fontWeight: '600'
@@ -114,7 +114,7 @@ export default function NotebookRenderer({ notebookPath }) {
               h3: ({node, ...props}) => (
                 <h3 style={{
                   color: '#fff',
-                  fontSize: '20px',
+                  fontSize: '16px',
                   marginTop: '20px',
                   marginBottom: '10px',
                   fontWeight: '600'
@@ -134,7 +134,7 @@ export default function NotebookRenderer({ notebookPath }) {
                     padding: '2px 6px',
                     borderRadius: '4px',
                     color: '#4ae290',
-                    fontSize: '14px'
+                    fontSize: '11px'
                   }} {...props} /> :
                   <code style={{
                     display: 'block',
@@ -142,7 +142,7 @@ export default function NotebookRenderer({ notebookPath }) {
                     padding: '12px',
                     borderRadius: '6px',
                     color: '#4ae290',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     overflowX: 'auto',
                     whiteSpace: 'pre'
                   }} {...props} />
@@ -215,7 +215,7 @@ export default function NotebookRenderer({ notebookPath }) {
               borderLeft: '4px solid #3a86ff'
             }}>
               <div style={{
-                fontSize: '11px',
+                fontSize: '9px',
                 color: '#666',
                 marginBottom: '8px',
                 textTransform: 'uppercase',
@@ -226,7 +226,7 @@ export default function NotebookRenderer({ notebookPath }) {
               <pre style={{
                 margin: 0,
                 color: '#4ae290',
-                fontSize: '14px',
+                fontSize: '11px',
                 whiteSpace: 'pre-wrap',
                 wordWrap: 'break-word',
                 fontFamily: 'monospace'
@@ -246,7 +246,7 @@ export default function NotebookRenderer({ notebookPath }) {
               borderTop: source ? '1px solid #333' : 'none'
             }}>
               <div style={{
-                fontSize: '11px',
+                fontSize: '9px',
                 color: '#666',
                 marginBottom: '8px',
                 textTransform: 'uppercase',
@@ -275,7 +275,7 @@ export default function NotebookRenderer({ notebookPath }) {
         <pre key={key} style={{
           margin: 0,
           color: output.name === 'stderr' ? '#ff6b6b' : '#ccc',
-          fontSize: '14px',
+          fontSize: '11px',
           whiteSpace: 'pre-wrap',
           wordWrap: 'break-word',
           fontFamily: 'monospace'
@@ -329,7 +329,7 @@ export default function NotebookRenderer({ notebookPath }) {
           <pre key={key} style={{
             margin: 0,
             color: '#ccc',
-            fontSize: '14px',
+            fontSize: '11px',
             whiteSpace: 'pre-wrap',
             wordWrap: 'break-word',
             fontFamily: 'monospace'
@@ -360,7 +360,7 @@ export default function NotebookRenderer({ notebookPath }) {
         <pre key={key} style={{
           margin: 0,
           color: '#ff6b6b',
-          fontSize: '14px',
+          fontSize: '11px',
           whiteSpace: 'pre-wrap',
           wordWrap: 'break-word',
           fontFamily: 'monospace'

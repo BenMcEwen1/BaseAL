@@ -14,6 +14,6 @@ export default function Promote() {
             borderRadius: '5px'
         }}>
             <p style={{margin: '5px'}}>Developed by <a style={{color: 'rgb(96 223 155)'}} href="https://www.benmcewen-phd.com/"> Ben</a> @ <a style={{color: 'rgb(96 223 155)'}} href="https://www.listeninglabnz.com/"> The Listening Lab</a></p>
-        </div>
+        </div> 
     )
 }

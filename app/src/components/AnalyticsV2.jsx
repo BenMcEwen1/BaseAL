@@ -35,7 +35,7 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experime
                     border: 'none',
                     borderRadius: '8px',
                     padding: '12px 24px',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     fontWeight: 'bold',
                     cursor: 'pointer',
                     zIndex: 11,
@@ -49,7 +49,7 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experime
 
             {/* Title */}
             <div style={{
-                fontSize: '24px',
+                fontSize: '19px',
                 fontWeight: 'bold',
                 color: 'white',
                 marginBottom: '30px',
@@ -95,7 +95,7 @@ export default function AnalyticsV2({ isOpen, onClose, trainingHistory, experime
                         borderRadius: '8px',
                         color: 'white',
                         textAlign: 'center', 
-                        fontSize: '16px'
+                        fontSize: '13px'
                     }}>
                         No training data available yet. Start training to see analytics.
                     </div>

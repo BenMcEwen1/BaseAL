@@ -34,7 +34,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
           alignItems: 'center',
           justifyContent: 'center',
           color: '#666',
-          fontSize: '12px'
+          fontSize: '10px'
         }}>
             <img
               src='/baseAL_logo.png'
@@ -61,7 +61,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
               background: 'rgba(255, 255, 255, 0.2)',
               border: 'none',
               borderRadius: '6px',
-              fontSize: '14px',
+              fontSize: '12px',
               fontWeight: '500',
               transition: 'background 0.2s',
               cursor: 'pointer'
@@ -80,7 +80,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
               background: 'rgba(255, 255, 255, 0.2)',
               border: 'none',
               borderRadius: '6px',
-              fontSize: '14px',
+              fontSize: '12px',
               fontWeight: '500',
               transition: 'background 0.2s',
               cursor: 'pointer'
@@ -100,7 +100,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
               padding: '10px 20px',
               background: 'rgba(255, 255, 255, 0.2)',
               borderRadius: '6px',
-              fontSize: '14px',
+              fontSize: '12px',
               fontWeight: '500',
               transition: 'background 0.2s',
               cursor: 'pointer',
@@ -131,7 +131,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '40px'
+        gap: '25px'
       }}>
         {/* Title Section */}
         <div style={{
@@ -141,8 +141,8 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
         }}>
           {/* Logo Space - Next to Title */}
           <div style={{
-            width: '120px',
-            height: '120px',
+            width: '80px',
+            height: '80px',
             // border: '2px dashed #444',
             borderRadius: '12px',
             display: 'flex',
@@ -165,7 +165,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
 
           {/* Title */}
           <h1 style={{
-            fontSize: '72px',
+            fontSize: '48px',
             fontWeight: '200',
             color: '#fff',
             margin: 0,
@@ -177,7 +177,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
 
         {/* Subtitle */}
         <p style={{
-          fontSize: '18px',
+          fontSize: '14px',
           color: 'rgba(255, 255, 255, 0.8)',
           margin: 0,
           textAlign: 'center',
@@ -190,8 +190,8 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
         <button
           onClick={onGetStarted}
           style={{
-            padding: '16px 48px',
-            fontSize: '18px',
+            padding: '12px 36px',
+            fontSize: '14px',
             fontWeight: '600',
             background: '#4ae290',
             color: '#0a0a0a',
@@ -225,7 +225,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
         alignItems: 'center',
         // gap: '10px',
         color: '#666',
-        fontSize: '14px',
+        fontSize: '12px',
         animation: 'bounce 2s infinite'
       }}>
         <span>Scroll to explore</span>

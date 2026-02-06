@@ -77,7 +77,7 @@ export default function Docs({ isOpen, onClose }) {
         <h2 style={{
           color: '#fff',
           margin: 0,
-          fontSize: '24px',
+          fontSize: '19px',
           fontWeight: '300',
           letterSpacing: '2px'
         }}>
@@ -97,7 +97,7 @@ export default function Docs({ isOpen, onClose }) {
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: '24px',
+            fontSize: '19px',
             transition: 'all 0.2s'
           }}
           onMouseEnter={(e) => {
@@ -129,7 +129,7 @@ export default function Docs({ isOpen, onClose }) {
         }}>
           <h3 style={{
             color: '#999',
-            fontSize: '12px',
+            fontSize: '10px',
             textTransform: 'uppercase',
             letterSpacing: '2px',
             marginTop: 0,
@@ -154,7 +154,7 @@ export default function Docs({ isOpen, onClose }) {
                   border: selectedNotebook === notebook.path ? '2px solid #4ae290' : '2px solid transparent',
                   borderRadius: '8px',
                   color: selectedNotebook === notebook.path ? '#4ae290' : '#ccc',
-                  fontSize: '16px',
+                  fontSize: '13px',
                   fontWeight: selectedNotebook === notebook.path ? '600' : '400',
                   textAlign: 'left',
                   cursor: 'pointer',
