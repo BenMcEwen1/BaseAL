@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs
 
-# Create non-root user for HF Spaces
+# Create non-root user
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user \
@@ -40,7 +40,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pyyaml \
     soundfile
 
-# Build React frontend (empty VITE_API_URL = same-origin requests to port 7860)
+# Build React frontend (empty VITE_API_URL = same-origin requests)
 WORKDIR $HOME/app/app
 ENV VITE_API_URL=""
 RUN npm install && npm run build
@@ -48,8 +48,9 @@ RUN npm install && npm run build
 # Back to root
 WORKDIR $HOME/app
 
-# Expose port 7860 (HF Spaces default)
-EXPOSE 7860
+# Railway sets PORT env var; default to 7860 for local dev
+ENV PORT=7860
+EXPOSE $PORT
 
 # Start the application
 CMD ["python", "app.py"]

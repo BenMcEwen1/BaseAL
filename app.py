@@ -1,7 +1,8 @@
 """
-Hugging Face Spaces entry point for BaseAL
+Entry point for BaseAL
 Serves both the FastAPI backend and React frontend
 """
+import os
 import uvicorn
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
@@ -56,7 +57,8 @@ if FRONTEND_BUILD_DIR.exists():
         return FileResponse(FRONTEND_BUILD_DIR / "index.html")
 
 if __name__ == "__main__":
-    print("Starting BaseAL on port 7860...")
+    port = int(os.environ.get("PORT", 7860))
+    print(f"Starting BaseAL on port {port}...")
     print(f"Frontend build dir: {FRONTEND_BUILD_DIR}")
     print(f"Frontend exists: {FRONTEND_BUILD_DIR.exists()}")
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    uvicorn.run(app, host="0.0.0.0", port=port)
