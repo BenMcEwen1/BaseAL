@@ -12,7 +12,7 @@ const parseHash = () => {
   const parts = hash.split('/').filter(Boolean);
   return {
     section: parts[0] || null,  // e.g., 'challenges', 'docs'
-    page: parts[1] || null,     // e.g., 'biodcase'
+    page: parts.slice(1).join('/') || null,  // e.g., 'biodcase' or 'biodcase/setup'
   };
 };
 

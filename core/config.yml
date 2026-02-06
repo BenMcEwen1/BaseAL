@@ -12,9 +12,9 @@ experiments:
     device: cpu
     pretrain_samples: null 
 
-  - name: Random (ESC50)
-    embeddings_dir: ESC50_BASEAL/embeddings/birdnet/
-    annotations_path: ESC50_BASEAL/labels.csv
+  - name: Margin
+    embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
+    annotations_path: ESC10_BASEAL/labels.csv
     hidden_dim: null
     sampling_strategy: margin
     learning_rate: 0.001

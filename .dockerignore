@@ -1,0 +1,20 @@
+# Large dataset not needed for demo
+ESC50_BASEAL/
+
+# old data
+data/
+
+# Local virtual environment (rebuilt in container)
+.venv/
+
+# Node modules (rebuilt in container via npm install)
+app/node_modules/
+
+# Git and IDE
+.git/
+.claude/
+planning/
+
+# Build artifacts
+*.egg-info
+__pycache__/

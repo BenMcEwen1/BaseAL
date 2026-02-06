@@ -41,9 +41,9 @@ app.add_middleware(
 
 # Base paths
 BASE_DIR = Path(__file__).parent.parent
-EMBEDDINGS_BASE_PATH = BASE_DIR / "data" / "embeddings"
-ANNOTATIONS_BASE_PATH = BASE_DIR / "data" / "evaluations"
-AUDIO_BASE_PATH = BASE_DIR / "data" 
+AUDIO_BASE_PATH = BASE_DIR / "ESC10_BASEAL" / "data"
+EMBEDDINGS_BASE_PATH = BASE_DIR / "ESC10_BASEAL" / "embeddings"
+ANNOTATIONS_BASE_PATH = BASE_DIR / "ESC10_BASEAL"
 
 # Global active learner instance (for backward compatibility with single experiment)
 active_learner: Optional[ActiveLearner] = None
@@ -141,7 +141,7 @@ def list_models():
                     "path": str(model_dir.relative_to(EMBEDDINGS_BASE_PATH))
                 })
     else:
-        raise Exception(status_code=404, detail=f"Embedding base path {EMBEDDINGS_BASE_PATH} doesn't exist")
+        raise HTTPException(status_code=404, detail=f"Embedding base path {EMBEDDINGS_BASE_PATH} doesn't exist")
 
     return {"models": models}
 
@@ -149,7 +149,7 @@ def list_models():
 @app.get("/api/embeddings/{model_name}/datasets")
 def list_datasets(model_name: str):
     """List available datasets for a given model"""
-    model_path = EMBEDDINGS_BASE_PATH / model_name / "audio"
+    model_path = EMBEDDINGS_BASE_PATH / model_name 
 
     if not model_path.exists():
         raise HTTPException(status_code=404, detail=f"Model not found: {model_name}")
@@ -284,8 +284,8 @@ def initialize_manager(config_path: str = "core/config.yml"):
 @app.post("/api/manager/add-experiment")
 def add_experiment_to_manager(
     name: str,
-    model_name: str = "2025-11-13_21-42___birdnet-test_data",
-    dataset_name: str = "esc50",
+    model_name: str = "birdnet",
+    sampling_strategy: str = "random",
     learning_rate: float = 0.0001,
     hidden_dim: Optional[int] = None,
     device: str = "cpu"
@@ -295,8 +295,8 @@ def add_experiment_to_manager(
 
     Args:
         name: Name for the new experiment
-        model_name: Model directory name
-        dataset_name: Dataset name
+        model_name: Model/encoder name (e.g. 'birdnet', 'perch_bird')
+        sampling_strategy: Sampling strategy ('random', 'margin', etc.)
         learning_rate: Learning rate
         hidden_dim: Hidden dimension (optional)
         device: Device to use
@@ -310,15 +310,11 @@ def add_experiment_to_manager(
         raise HTTPException(status_code=400, detail="Manager not initialized. Call /api/manager/initialize first.")
 
     try:
-        # Extract base model name
-        base_model_name = "birdnet" if "birdnet" in model_name.lower() else "perch_bird"
-
-        # Create config
         new_config = {
-            'embeddings_dir': str(EMBEDDINGS_BASE_PATH / model_name / "audio" / dataset_name),
-            'annotations_path': str(ANNOTATIONS_BASE_PATH / base_model_name / "classification" / "default_classifier_annotations.csv"),
-            'model_name': base_model_name,
-            'dataset_name': dataset_name,
+            'embeddings_dir': str(EMBEDDINGS_BASE_PATH / model_name),
+            'annotations_path': str(BASE_DIR / "ESC10_BASEAL" / "labels.csv"),
+            'model_name': model_name,
+            'sampling_strategy': sampling_strategy,
             'learning_rate': learning_rate,
             'hidden_dim': hidden_dim,
             'device': device
@@ -487,7 +483,7 @@ def select_experiment(experiment_index: int):
 # ==================== Active Learning Endpoints ====================
 
 @app.post("/api/active-learning/initialize")
-def initialize_active_learner(model_name: str = "2025-11-13_21-42___birdnet-test_data", dataset_name: str = "esc50"):
+def initialize_active_learner(model_name: str = "birdnet", dataset_name: str = "esc50"):
     """
     Initialize the active learning pipeline
 
@@ -501,12 +497,8 @@ def initialize_active_learner(model_name: str = "2025-11-13_21-42___birdnet-test
     global active_learner
 
     try:
-        # Extract base model name (birdnet or perch_bird)
-        base_model_name = "birdnet" if "birdnet" in model_name.lower() else "perch_bird"
-
-        # Paths
-        embeddings_dir = EMBEDDINGS_BASE_PATH / model_name / "audio" / dataset_name
-        annotations_path = ANNOTATIONS_BASE_PATH / base_model_name / "classification" / "default_classifier_annotations.csv"
+        embeddings_dir = EMBEDDINGS_BASE_PATH / model_name
+        annotations_path = ANNOTATIONS_BASE_PATH / "labels.csv"
 
         logger.info(f"Initializing active learner:")
         logger.info(f"  Embeddings dir: {embeddings_dir}")
@@ -524,7 +516,7 @@ def initialize_active_learner(model_name: str = "2025-11-13_21-42___birdnet-test
         active_learner = ActiveLearner(
             embeddings_dir=embeddings_dir,
             annotations_path=annotations_path,
-            model_name=base_model_name,
+            model_name=model_name,
             dataset_name=dataset_name,
             hidden_dim=1024,
             learning_rate=0.001,

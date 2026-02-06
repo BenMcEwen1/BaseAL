@@ -1,0 +1,14 @@
+import { useState, useEffect } from 'react';
+
+export default function Baselines() {
+  return (
+    <div style={{
+      padding: '40px',
+      maxWidth: '900px',
+      margin: '0 auto',
+      color: 'white'}}>
+      <h1>Baselines</h1>
+      <p>This is a placeholder</p>
+    </div>
+  )
+}

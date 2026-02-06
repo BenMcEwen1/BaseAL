@@ -7,7 +7,8 @@ import {
   getManagerSummary,
   saveManagerResults,
   selectExperiment,
-  getActiveLearningEmbeddings
+  getActiveLearningEmbeddings,
+  fetchModels
 } from '../utils/apiClient';
 
 export default function ManagerPanel({ dimensionReduction, projection, onEmbeddingsUpdate, onExperimentSelect, onTrainingUpdate }) {
@@ -24,7 +25,10 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
   // Add experiment form state
   const [showAddForm, setShowAddForm] = useState(false);
   const [newExpName, setNewExpName] = useState('');
-  const [newExpLearningRate, setNewExpLearningRate] = useState(0.0001);
+  const [newExpLearningRate, setNewExpLearningRate] = useState(0.001);
+  const [newSamplingMethod, setNewSamplingMethod] = useState('random');
+  const [newExpModelName, setNewExpModelName] = useState('birdnet');
+  const [availableModels, setAvailableModels] = useState([]);
 
   // Manager run settings
   const [runSettings, setRunSettings] = useState({
@@ -40,6 +44,18 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
   const [showRunDropdown, setShowRunDropdown] = useState(false);
   const cancelRunRef = React.useRef(false);
 
+
+  // Load available embedding models on mount
+  useEffect(() => {
+    fetchModels()
+      .then((models) => {
+        setAvailableModels(models);
+        if (models.length > 0) {
+          setNewExpModelName(models[0].name);
+        }
+      })
+      .catch((err) => console.error('Failed to load models:', err));
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -120,8 +136,8 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
       await addExperimentToManager({
         name: newExpName,
         learning_rate: newExpLearningRate,
-        model_name: '2025-11-13_21-42___birdnet-test_data',
-        dataset_name: 'esc50'
+        sampling_strategy: newSamplingMethod,
+        model_name: newExpModelName,
       });
 
       await loadExperiments();
@@ -517,6 +533,30 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
               </div>
               <div style={{ marginBottom: '8px' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
+                  Embedding Model:
+                </label>
+                <select
+                  value={newExpModelName}
+                  onChange={(e) => setNewExpModelName(e.target.value)}
+                  style={{
+                    width: '86%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #444',
+                    background: '#0a0a0a',
+                    color: 'white',
+                    fontSize: '14px'
+                  }}
+                >
+                  {availableModels.map((model) => (
+                    <option key={model.name} value={model.name}>
+                      {model.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
                   Learning Rate:
                 </label>
                 <input
@@ -535,7 +575,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                   }}
                 />
               </div>
-              <div style={{ marginBottom: '8px' }}>
+              {/* <div style={{ marginBottom: '8px' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
                   Uncertainty Quantification:
                 </label>
@@ -554,16 +594,16 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     fontSize: '14px'
                   }}
                 />
-              </div>
+              </div> */}
               <div style={{ marginBottom: '8px' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
                   Sampling Method:
                 </label>
                 <input
-                  type="number"
-                  step="0.0001"
+                  type="text"
+                  // step="0.0001"
                   // value={newExpLearningRate}
-                  // onChange={(e) => setNewExpLearningRate(parseFloat(e.target.value))}
+                  onChange={(e) => setNewSamplingMethod((e.target.value))}
                   style={{
                     width: '80%',
                     padding: '8px',
@@ -575,7 +615,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                   }}
                 />
               </div>
-              <div style={{ marginBottom: '8px' }}>
+              {/* <div style={{ marginBottom: '8px' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
                   Diversification Method:
                 </label>
@@ -594,7 +634,7 @@ export default function ManagerPanel({ dimensionReduction, projection, onEmbeddi
                     fontSize: '14px'
                   }}
                 />
-              </div>
+              </div> */}
               <button
                 onClick={addExperiment}
                 disabled={loading}

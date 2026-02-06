@@ -1,4 +1,7 @@
+import Baselines from './pages/Baselines';
 import BioDCASE from './pages/BioDCASE';
+import Datasets from './pages/Datasets';
+import Setup from './pages/Setup';
 
 // Define available challenge pages
 const CHALLENGE_PAGES = [
@@ -6,17 +9,43 @@ const CHALLENGE_PAGES = [
     id: 'biodcase',
     title: 'BioDCASE - Active Learning for Bioacoustics',
     component: BioDCASE,
+    subpages: [
+      { id: 'instructions', title: 'Instructions', component: Setup },
+      { id: 'datasets', title: 'Datasets', component: Datasets },
+      { id: 'baselines', title: 'Baselines', component: Baselines },
+      // Add more subpages here as needed
+    ]
   },
   // Add more challenge pages here as needed:
-  // { id: 'other-challenge', title: 'Other Challenge', component: OtherChallenge },
+  { id: 'other-challenge', title: 'Other Challenge', component: Setup, subpages: [] },
 ];
 
 export default function Challenges({ isOpen, onClose, page }) {
-  // Default to first challenge if no page specified or page not found
-  const currentPage = CHALLENGE_PAGES.find(p => p.id === page) || CHALLENGE_PAGES[0];
+  // Parse the page to extract challenge and optional subpage (e.g., 'biodcase/setup')
+  const [challengeId, subpageId] = (page || '').split('/');
+
+  // Find the current challenge
+  const currentChallenge = CHALLENGE_PAGES.find(p => p.id === challengeId) || CHALLENGE_PAGES[0];
+
+  // Find the current subpage if specified
+  const currentSubpage = subpageId
+    ? currentChallenge.subpages?.find(s => s.id === subpageId)
+    : null;
+
+  // Determine which component to render
+  const CurrentComponent = currentSubpage?.component || currentChallenge.component;
 
   const handleSelectChallenge = (challengeId) => {
     window.location.hash = `/challenges/${challengeId}`;
+  };
+
+  const handleSelectSubpage = (challengeId, subpageId) => {
+    window.location.hash = `/challenges/${challengeId}/${subpageId}`;
+  };
+
+  // Check if a challenge's subpages should be visible (when challenge or any of its subpages is selected)
+  const isExpanded = (challenge) => {
+    return currentChallenge.id === challenge.id;
   };
 
   if (!isOpen) return null;
@@ -112,38 +141,93 @@ export default function Challenges({ isOpen, onClose, page }) {
             flexDirection: 'column',
             gap: '8px'
           }}>
-            {CHALLENGE_PAGES.map(challenge => (
-              <button
-                key={challenge.id}
-                onClick={() => handleSelectChallenge(challenge.id)}
-                style={{
-                  padding: '16px 20px',
-                  background: currentPage.id === challenge.id ? '#1a1a1a' : 'transparent',
-                  border: currentPage.id === challenge.id ? '2px solid #4ae290' : '2px solid transparent',
-                  borderRadius: '8px',
-                  color: currentPage.id === challenge.id ? '#4ae290' : '#ccc',
-                  fontSize: '16px',
-                  fontWeight: currentPage.id === challenge.id ? '600' : '400',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  if (currentPage.id !== challenge.id) {
-                    e.target.style.background = '#0f0f0f';
-                    e.target.style.color = '#fff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentPage.id !== challenge.id) {
-                    e.target.style.background = 'transparent';
-                    e.target.style.color = '#ccc';
-                  }
-                }}
-              >
-                {challenge.title}
-              </button>
-            ))}
+            {CHALLENGE_PAGES.map(challenge => {
+              const isChallengeActive = currentChallenge.id === challenge.id && !currentSubpage;
+              const isChallengeExpanded = isExpanded(challenge);
+
+              return (
+                <div key={challenge.id}>
+                  <button
+                    onClick={() => handleSelectChallenge(challenge.id)}
+                    style={{
+                      width: '100%',
+                      padding: '16px 20px',
+                      background: isChallengeActive ? '#1a1a1a' : 'transparent',
+                      border: isChallengeActive ? '2px solid #4ae290' : '2px solid transparent',
+                      borderRadius: '8px',
+                      color: isChallengeActive ? '#4ae290' : (isChallengeExpanded ? '#fff' : '#ccc'),
+                      fontSize: '16px',
+                      fontWeight: isChallengeActive || isChallengeExpanded ? '600' : '400',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isChallengeActive) {
+                        e.target.style.background = '#0f0f0f';
+                        e.target.style.color = '#fff';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isChallengeActive) {
+                        e.target.style.background = 'transparent';
+                        e.target.style.color = isChallengeExpanded ? '#fff' : '#ccc';
+                      }
+                    }}
+                  >
+                    {challenge.title}
+                  </button>
+
+                  {/* Subpages - only visible when challenge is expanded */}
+                  {isChallengeExpanded && challenge.subpages?.length > 0 && (
+                    <div style={{
+                      marginLeft: '20px',
+                      marginTop: '4px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px'
+                    }}>
+                      {challenge.subpages.map(subpage => {
+                        const isSubpageActive = currentSubpage?.id === subpage.id;
+
+                        return (
+                          <button
+                            key={subpage.id}
+                            onClick={() => handleSelectSubpage(challenge.id, subpage.id)}
+                            style={{
+                              padding: '12px 16px',
+                              background: isSubpageActive ? '#1a1a1a' : 'transparent',
+                              border: isSubpageActive ? '2px solid #4ae290' : '2px solid transparent',
+                              borderRadius: '6px',
+                              color: isSubpageActive ? '#4ae290' : '#aaa',
+                              fontSize: '14px',
+                              fontWeight: isSubpageActive ? '600' : '400',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSubpageActive) {
+                                e.target.style.background = '#0f0f0f';
+                                e.target.style.color = '#fff';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSubpageActive) {
+                                e.target.style.background = 'transparent';
+                                e.target.style.color = '#aaa';
+                              }
+                            }}
+                          >
+                            {subpage.title}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -153,7 +237,7 @@ export default function Challenges({ isOpen, onClose, page }) {
           background: '#060014',
           overflowY: 'auto'
         }}>
-          <currentPage.component />
+          <CurrentComponent />
         </div>
       </div>
     </div>

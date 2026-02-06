@@ -5,11 +5,11 @@ const teamMembers = [
     id: 1,
     name: 'Ben McEwen',
     affiliation: 'Postdoctoral researcher, Tilburg University, Netherlands',
-    description: 'Ben is a Postdoctoral Researcher applying active learning for biodiversity monitoring at a transnational scale (from Norway to Spain) through the TABMON project. Previously, Ben researched active learning methods for at-risk and invasive species detection',
+    description: 'Ben is a Postdoctoral Researcher in AI and Biodiversity applying active learning for biodiversity monitoring at a transnational scale. Previously, Ben researched active learning methods for at-risk and invasive species detection',
     contact: 'benmcewen@outlook.com',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=x47JZUkAAAAJ&view_op=list_works&sortby=pubdate',
     website: 'https://www.benmcewen-phd.com/',
-    img: '../../../dist/profiles/ben_mcewen.jpg'
+    img: '/profiles/ben_mcewen.jpg'
   },
   {
     id: 2,
@@ -18,7 +18,7 @@ const teamMembers = [
     description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=bB2A6e0AAAAJ&view_op=list_works&sortby=pubdate',
     // website: 'https://example.com/',
-    img: '../../../dist/profiles/lukas_rauch.jpg'
+    img: '/profiles/lukas_rauch.jpg'
   },
   {
     id: 3,
@@ -27,7 +27,7 @@ const teamMembers = [
     description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=pwRDfMQAAAAJ&view_op=list_works&sortby=pubdate',
     // website: 'https://example.com/',
-    img: '../../../dist/profiles/marek_herde.JPG'
+    img: '/profiles/marek_herde.JPG'
   },
   {
     id: 4,
@@ -36,7 +36,7 @@ const teamMembers = [
     description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=fnOCg-8AAAAJ&view_op=list_works&sortby=pubdate',
     // website: 'https://example.com/',
-    img: '../../../dist/profiles/shiqi_zhang.jpg'
+    img: '/profiles/shiqi_zhang.jpg'
   },
   {
     id: 5,
@@ -45,7 +45,7 @@ const teamMembers = [
     description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=YY9cf7sAAAAJ&view_op=list_works&sortby=pubdate',
     website: 'https://rupakv.com/',
-    img: '../../../dist/profiles/rupa_kurinchi_vendhan.jfif'
+    img: '/profiles/rupa_kurinchi_vendhan.jfif'
   },
   {
     id: 6,
@@ -54,7 +54,7 @@ const teamMembers = [
     description: 'John is a PhD candidate at Lund University and Research Scientist at RISE Research Institutes of Sweden, developing annotation-efficient machine listening methods for bioacoustics. His research directly addresses the bottleneck of labeling costs through active learning.',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=sAMIwlMAAAAJ&view_op=list_works&sortby=pubdate',
     website: 'https://johnmartinsson.org/',
-    img: '../../../dist/profiles/john_martinsson.jpg'
+    img: '/profiles/john_martinsson.jpg'
   },
   {
     id: 7,
@@ -63,7 +63,7 @@ const teamMembers = [
     description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
     googleScholar: 'https://scholar.google.com/citations?user=Hbr4c10AAAAJ&hl=en&oi=ao',
     website: 'https://beerys.github.io/',
-    img: '../../../dist/profiles/sara_beery.jpeg'
+    img: '/profiles/sara_beery.jpeg'
   },
 ];
 
@@ -279,7 +279,7 @@ function Timeline() {
         borderRadius: '12px',
         padding: '30px 40px',
         marginBottom: '40px',
-        maxWidth: '600px'
+        // maxWidth: '600px'
       }}>
         {/* Timeline row with circles */}
         <div style={{

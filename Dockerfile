@@ -40,8 +40,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pyyaml \
     soundfile
 
-# Build React frontend
+# Build React frontend (empty VITE_API_URL = same-origin requests to port 7860)
 WORKDIR $HOME/app/app
+ENV VITE_API_URL=""
 RUN npm install && npm run build
 
 # Back to root

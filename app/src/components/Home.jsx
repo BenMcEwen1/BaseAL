@@ -69,7 +69,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick}) {
             onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.4)'}
             onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
           >
-            Challenges
+            Data Challenges
           </button>
           <button
             onClick={onDocsClick}
