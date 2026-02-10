@@ -35,6 +35,7 @@ From: rockylinux/rockylinux:8.10
     cd /
     git clone https://github.com/TioSisai/BaseAL.git
     cd BaseAL
+    git clone https://github.com/bioacoustic-ai/bacpipe.git
     UV_PROJECT_ENVIRONMENT=/opt/myenv uv sync
 
     uv cache clean
