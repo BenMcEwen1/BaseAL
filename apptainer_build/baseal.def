@@ -8,8 +8,6 @@ From: rockylinux/rockylinux:8.10
 %post
     cp /usr/bin/true /usr/sbin/useradd
     cp /usr/bin/true /usr/sbin/groupadd
-
-    dnf -y update
     
     export PYTHON_VERSION={{PYTHON_VERSION}}
     dnf install -y git curl

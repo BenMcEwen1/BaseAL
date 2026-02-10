@@ -8,3 +8,9 @@ ESC50_BASEAL
 results
 test_data
 planning
+
+*.code-workspace
+/notebooks/
+/tests/
+/.vscode/
+/apptainer_build/
