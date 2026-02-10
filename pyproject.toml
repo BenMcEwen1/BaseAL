@@ -7,6 +7,9 @@ name = "BaseAL"
 version = "0.1.0"
 requires-python = ">=3.11,<3.13"
 dependencies = [
+    "bacpipe>=1.2.0",
+    "ipykernel>=7.1.0",
+    "soundfile>=0.12.1",
     "torch>=2.6",
     "scikit-learn>=1.7.1",
     "pandas>=2.2.3",
@@ -22,12 +25,19 @@ dependencies = [
     "scikit-activeml>=0.6.2"
 ]
 
-
 [tool.setuptools]
 packages = []  # No packages to include - BaseAL is a project root, not a package
 
 [tool.uv]
-required-environments = ["sys_platform == 'win32' and python_full_version >= '3.11' and python_full_version < '3.13'"]
+# Override transitive dependencies for cross-platform compatibility
+override-dependencies = [
+    # tensorflow-io-gcs-filesystem has no Windows wheels - skip entirely on non-Linux
+    "tensorflow-io-gcs-filesystem>=0.37.1; sys_platform == 'linux'",
+    # tensorflow-io also lacks Windows support
+    "tensorflow-io>=0.37.1; sys_platform == 'linux'",
+    "pyarrow>=21.0.0",
+    "fsspec>=2024.9.0,<2025.4.0",
+]
 
 [tool.uv.sources]
 bacpipe = { workspace = true }

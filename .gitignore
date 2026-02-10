@@ -14,3 +14,5 @@ planning
 /tests/
 /.vscode/
 /apptainer_build/
+/.pyenv/
+/dataset-generator/
