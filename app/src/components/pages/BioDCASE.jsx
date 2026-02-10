@@ -98,8 +98,9 @@ function TeamMemberCard({ member }) {
         textAlign: 'center',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
-        flex: '0 1 calc(50% - 10px)',
-        minWidth: '280px',
+        flex: '1 1 calc(50% - 10px)',
+        maxWidth: 'calc(50% - 10px)',
+        minWidth: '250px',
         boxSizing: 'border-box',
         border: hovered ? '2px solid rgba(255, 255, 255, 0.5)' : '2px solid transparent',
         transform: hovered ? 'scale(1.02)' : 'scale(1)',
@@ -277,9 +278,8 @@ function Timeline() {
       <div style={{
         ...getBoxStyle(),
         borderRadius: '12px',
-        padding: '30px 40px',
+        padding: 'clamp(15px, 4vw, 30px) clamp(20px, 5vw, 40px)',
         marginBottom: '40px',
-        // maxWidth: '600px'
       }}>
         {/* Timeline row with circles */}
         <div style={{
@@ -288,12 +288,12 @@ function Timeline() {
           justifyContent: 'space-between',
           position: 'relative',
         }}>
-          {/* Connecting line - absolute positioned behind circles */}
+          {/* Connecting line - positioned at half the circle height/width */}
           <div style={{
             position: 'absolute',
-            top: '40px',
-            left: '40px',
-            right: '40px',
+            top: 'clamp(25px, 6vw, 40px)',
+            left: 'clamp(25px, 6vw, 40px)',
+            right: 'clamp(25px, 6vw, 40px)',
             height: '3px',
             background: getLineGradient(),
             zIndex: 0,
@@ -307,8 +307,8 @@ function Timeline() {
             zIndex: 1,
           }}>
             <div style={{
-              width: '80px',
-              height: '80px',
+              width: 'clamp(50px, 12vw, 80px)',
+              height: 'clamp(50px, 12vw, 80px)',
               borderRadius: '50%',
               background: '#1a2332',
               border: '3px solid rgba(74, 226, 144, 0.8)',
@@ -318,11 +318,11 @@ function Timeline() {
               justifyContent: 'center',
               boxShadow: hasLaunched ? '0 0 15px rgba(74, 226, 144, 0.4)' : 'none',
             }}>
-              <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#4ae290' }}>1</span>
-              <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Apr</span>
+              <span style={{ fontSize: 'clamp(0.9rem, 2vw, 1.2rem)', fontWeight: 'bold', color: '#4ae290' }}>1</span>
+              <span style={{ fontSize: 'clamp(0.45rem, 1vw, 0.55rem)', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Apr</span>
             </div>
             <span style={{
-              fontSize: '0.65rem',
+              fontSize: 'clamp(0.55rem, 1.2vw, 0.65rem)',
               fontWeight: '600',
               color: '#4ae290',
               textTransform: 'uppercase',
@@ -339,8 +339,8 @@ function Timeline() {
             zIndex: 1,
           }}>
             <div style={{
-              width: '80px',
-              height: '80px',
+              width: 'clamp(50px, 12vw, 80px)',
+              height: 'clamp(50px, 12vw, 80px)',
               borderRadius: '50%',
               background: '#1a2332',
               border: `3px solid ${hasClosed ? 'rgba(226, 74, 74, 0.8)' : 'rgba(74, 180, 226, 0.8)'}`,
@@ -350,11 +350,11 @@ function Timeline() {
               justifyContent: 'center',
               boxShadow: hasClosed ? '0 0 15px rgba(226, 74, 74, 0.4)' : (hasLaunched ? '0 0 15px rgba(74, 180, 226, 0.3)' : 'none'),
             }}>
-              <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: hasClosed ? '#e24a4a' : '#4ab4e2' }}>15</span>
-              <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Jun</span>
+              <span style={{ fontSize: 'clamp(0.9rem, 2vw, 1.2rem)', fontWeight: 'bold', color: hasClosed ? '#e24a4a' : '#4ab4e2' }}>15</span>
+              <span style={{ fontSize: 'clamp(0.45rem, 1vw, 0.55rem)', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Jun</span>
             </div>
             <span style={{
-              fontSize: '0.65rem',
+              fontSize: 'clamp(0.55rem, 1.2vw, 0.65rem)',
               fontWeight: '600',
               color: hasClosed ? '#e24a4a' : '#4ab4e2',
               textTransform: 'uppercase',
@@ -367,9 +367,8 @@ function Timeline() {
         {/* Countdown / Status below */}
         <div style={{
           textAlign: 'center',
-          marginTop: '-50px',
+          // marginTop: 'clamp(-35px, -6vw, -50px)',
           paddingTop: '15px',
-          // borderTop: '1px solid rgba(255,255,255,0.1)',
         }}>
           {hasClosed ? (
             <span style={{
@@ -413,7 +412,7 @@ export default function BioDCASE() {
         <tag>Active Learning, Bioacoustics</tag>
 
         <p>A fundamental challenge across bioacoustics domains (terrestrial and marine) is the annotation of unlabelled data. Passive acoustic monitoring systems generate vast amounts of data, but only a small portion can be feasibly annotated by expert human annotators. Since model performance depends heavily on the quality and quantity of labelled data, this raises the following research question:</p> 
-        <p style={{fontSize: '14px', color: "rgb(171 171 171)", padding: '0px 100px 0px 10px'}}>Given vast amounts of raw acoustic data and limited annotation resources, which data should be prioritised for labelling?</p>
+        <p style={{fontSize: '14px', color: "rgb(171 171 171)", padding: '0px 10% 0px 2%'}}>Given vast amounts of raw acoustic data and limited annotation resources, which data should be prioritised for labelling?</p>
         <p>Active learning (AL) is a critical strategy for scaling bioacoustic monitoring. AL is an iterative method of data selection, annotation and model training also often within a human-in-the-loop framework. Fundamentally, AL aims to optimise for a learning objective (e.g. model performance) using less labeled data minimising annotation requirements. Participants will design an active learning strategy (acquisition function) to maximise training efficiency across batches of multi-label data considering informativeness quantification, diversification, long-tail performance and cross-domain generalisation.</p>
 
         <h3>About BioDCASE</h3>

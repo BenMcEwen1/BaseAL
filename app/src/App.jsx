@@ -21,6 +21,13 @@ export default function App() {
   const scrollContainerRef = useRef(null);
   const [axesOpacity, setAxesOpacity] = useState(0);
   const [route, setRoute] = useState(parseHash());
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Derived state from route
   const docsOpen = route.section === 'docs';
@@ -104,8 +111,8 @@ export default function App() {
       style={{
         width: '100vw',
         height: '100vh',
-        overflow: 'auto',
-        scrollSnapType: 'y mandatory'
+        overflow: isMobile ? 'hidden' : 'auto',
+        scrollSnapType: isMobile ? 'none' : 'y mandatory'
       }}
     >
       
@@ -113,19 +120,21 @@ export default function App() {
 
       {/* Home Page Section */}
       <div style={{ scrollSnapAlign: 'start' }}>
-        <Home onGetStarted={handleGetStarted} onDocsClick={handleDocsOpen} onChallengesClick={handleChallengesOpen} />
+        <Home onGetStarted={handleGetStarted} onDocsClick={handleDocsOpen} onChallengesClick={handleChallengesOpen} isMobile={isMobile} />
       </div>
 
-      {/* AL Tool Section */}
-      <div ref={alToolRef} style={{ scrollSnapAlign: 'start' }}>
-        <ALTool />
-      </div>
+      {/* AL Tool Section - hidden on mobile */}
+      {!isMobile && (
+        <div ref={alToolRef} style={{ scrollSnapAlign: 'start' }}>
+          <ALTool />
+        </div>
+      )}
 
       {/* Docs Overlay */}
-      <Docs isOpen={docsOpen} onClose={handleDocsClose} />
+      <Docs isOpen={docsOpen} onClose={handleDocsClose} isMobile={isMobile} />
 
       {/* Challenges overlay */}
-      <Challenges isOpen={challengesOpen} onClose={handleChallengesClose} page={challengePage} />
+      <Challenges isOpen={challengesOpen} onClose={handleChallengesClose} page={challengePage} isMobile={isMobile} />
 
     </div>
   );
