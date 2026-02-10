@@ -13,7 +13,7 @@ dependencies = [
     "torch>=2.6",
     "scikit-learn>=1.7.1",
     "pandas>=2.2.3",
-    "tensorflow>=2.20.0",
+    "tensorflow>=2.20.0; sys_platform == 'linux'",
     "librosa>=0.10.0",
     "matplotlib>=3.7.0",
     "fastapi>=0.110.0",
@@ -31,9 +31,7 @@ packages = []  # No packages to include - BaseAL is a project root, not a packag
 [tool.uv]
 # Override transitive dependencies for cross-platform compatibility
 override-dependencies = [
-    # tensorflow-io-gcs-filesystem has no Windows wheels - skip entirely on non-Linux
     "tensorflow-io-gcs-filesystem>=0.37.1; sys_platform == 'linux'",
-    # tensorflow-io also lacks Windows support
     "tensorflow-io>=0.37.1; sys_platform == 'linux'",
     "pyarrow>=21.0.0",
     "fsspec>=2024.9.0,<2025.4.0",
