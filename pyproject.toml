@@ -40,4 +40,4 @@ override-dependencies = [
 ]
 
 [tool.uv.sources]
-bacpipe = { workspace = true }
+bacpipe = { path = "./bacpipe" }
