@@ -8,7 +8,7 @@ export default function Baselines() {
       margin: '0 auto',
       color: 'white'}}>
       <h1>Baselines</h1>
-      <p>This is a placeholder</p>
+      <p>Coming soon</p>
     </div>
   )
 }

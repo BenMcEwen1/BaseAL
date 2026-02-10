@@ -15,7 +15,7 @@ const teamMembers = [
     id: 2,
     name: 'Lukas Rauch',
     affiliation: 'PhD Candidate, Kassel University, Germany',
-    description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
+    description: '',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=bB2A6e0AAAAJ&view_op=list_works&sortby=pubdate',
     // website: 'https://example.com/',
     img: '/profiles/lukas_rauch.jpg'
@@ -24,7 +24,7 @@ const teamMembers = [
     id: 3,
     name: 'Marek Herde',
     affiliation: 'PhD Candidate, Kassel University, Germany',
-    description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
+    description: '',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=pwRDfMQAAAAJ&view_op=list_works&sortby=pubdate',
     // website: 'https://example.com/',
     img: '/profiles/marek_herde.JPG'
@@ -33,7 +33,7 @@ const teamMembers = [
     id: 4,
     name: 'Shiqi Zhang',
     affiliation: 'PhD Candidate, Tampere University, Finland',
-    description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
+    description: '',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=fnOCg-8AAAAJ&view_op=list_works&sortby=pubdate',
     // website: 'https://example.com/',
     img: '/profiles/shiqi_zhang.jpg'
@@ -42,7 +42,7 @@ const teamMembers = [
     id: 5,
     name: 'Rupa Kurinchi-Vendhan',
     affiliation: 'PhD Candidate, Massachusetts Institute of Technology',
-    description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
+    description: '',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=YY9cf7sAAAAJ&view_op=list_works&sortby=pubdate',
     website: 'https://rupakv.com/',
     img: '/profiles/rupa_kurinchi_vendhan.jfif'
@@ -51,7 +51,7 @@ const teamMembers = [
     id: 6,
     name: 'John Martinsson',
     affiliation: 'RISE Research Institute of Sweden',
-    description: 'John is a PhD candidate at Lund University and Research Scientist at RISE Research Institutes of Sweden, developing annotation-efficient machine listening methods for bioacoustics. His research directly addresses the bottleneck of labeling costs through active learning.',
+    description: '',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=sAMIwlMAAAAJ&view_op=list_works&sortby=pubdate',
     website: 'https://johnmartinsson.org/',
     img: '/profiles/john_martinsson.jpg'
@@ -60,7 +60,7 @@ const teamMembers = [
     id: 7,
     name: 'Sara Beery',
     affiliation: 'Associate Professor, Massachusetts Institute of Technology',
-    description: 'Brief bio and research interests go here. This section can be expanded to show more details about the team member\'s background and contributions to the project.',
+    description: '',
     googleScholar: 'https://scholar.google.com/citations?user=Hbr4c10AAAAJ&hl=en&oi=ao',
     website: 'https://beerys.github.io/',
     img: '/profiles/sara_beery.jpeg'

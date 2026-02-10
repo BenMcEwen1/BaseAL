@@ -8,7 +8,7 @@ export default function Datasets() {
       margin: '0 auto',
       color: 'white'}}>
       <h1>Datasets</h1>
-      <p>This is a placeholder</p>
+      <p>Coming soon</p>
     </div>
   )
 }

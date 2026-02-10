@@ -8,7 +8,7 @@ export default function Setup() {
       margin: '0 auto',
       color: 'white'}}>
       <h1>Instructions</h1>
-      <p>This is a placeholder</p>
+      <p>Coming soon</p>
     </div>
   )
 }
