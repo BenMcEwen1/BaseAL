@@ -36,6 +36,7 @@ override-dependencies = [
     "pyarrow>=21.0.0",
     "fsspec>=2024.9.0,<2025.4.0",
 ]
+required-environments = ["sys_platform == 'linux' and python_full_version >= '3.11' and python_full_version < '3.13'"]
 
 [tool.uv.sources]
 bacpipe = { path = "./bacpipe" }
