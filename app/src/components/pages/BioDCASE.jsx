@@ -60,7 +60,7 @@ const teamMembers = [
     id: 7,
     name: 'Sara Beery',
     affiliation: 'Associate Professor, Massachusetts Institute of Technology',
-    description: '',
+    description: 'Dr. Sara Beery is the Homer A. Burnell Assistant Professor in the MIT Department of Electrical Engineering and Computer Science. Her research focuses on building computer vision methods that enable global-scale environmental and biodiversity monitoring across data modalities, and her work has been recognized with a Schmidt Sciences AI2050 Early Career Fellowship, an NSF CAREER Grant, and the Amori Doctoral Prize.  She also works to increase access to AI skills through interdisciplinary capacity building and education, and has founded the AI for Conservation slack community, founded and directs the Workshop on Computer Vision Methods for Ecology, and co-leads the NSF/NSERC Global Center on AI and Biodiversity Change.',
     googleScholar: 'https://scholar.google.com/citations?user=Hbr4c10AAAAJ&hl=en&oi=ao',
     website: 'https://beerys.github.io/',
     img: '/profiles/sara_beery.jpeg'
