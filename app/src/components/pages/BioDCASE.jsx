@@ -5,7 +5,7 @@ const teamMembers = [
     id: 1,
     name: 'Ben McEwen',
     affiliation: 'Postdoctoral researcher, Tilburg University, Netherlands',
-    description: 'Ben is a Postdoctoral Researcher in AI and Biodiversity applying active learning for biodiversity monitoring at a transnational scale. Previously, Ben researched active learning methods for at-risk and invasive species detection',
+    description: 'Ben is a Postdoctoral Researcher in AI and Biodiversity applying active learning to biodiversity monitoring at a transnational scale. Previously, Ben researched active learning methods for at-risk and invasive species detection',
     contact: 'benmcewen@outlook.com',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=x47JZUkAAAAJ&view_op=list_works&sortby=pubdate',
     website: 'https://www.benmcewen-phd.com/',
@@ -33,7 +33,7 @@ const teamMembers = [
     id: 4,
     name: 'Shiqi Zhang',
     affiliation: 'PhD Candidate, Tampere University, Finland',
-    description: '',
+    description: "Shiqi Zhang is a PhD candidate in the Audio Research Group at Tampere University. His research focuses on developing Active Learning methods to minimize the manual annotation effort required for bioacoustic data analysis. He is a member of the Bioacoustic AI project, funded by the European Union's Marie Skłodowska-Curie Action.",
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=fnOCg-8AAAAJ&view_op=list_works&sortby=pubdate',
     // website: 'https://example.com/',
     img: '/profiles/shiqi_zhang.jpg'
