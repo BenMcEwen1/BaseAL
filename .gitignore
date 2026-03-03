@@ -10,9 +10,6 @@ test_data
 planning
 
 *.code-workspace
-/notebooks/
-/tests/
 /.vscode/
-/apptainer_build/
 /.pyenv/
 /dataset-generator/
