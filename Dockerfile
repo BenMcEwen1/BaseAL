@@ -35,6 +35,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     numpy>=1.24.0 \
     umap-learn \
     scikit-activeml>=0.6.2 \
+    faiss-cpu \
     librosa>=0.10.0 \
     matplotlib>=3.7.0 \
     pyyaml \
