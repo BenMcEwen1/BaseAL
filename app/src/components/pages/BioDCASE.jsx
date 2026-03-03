@@ -5,7 +5,7 @@ const teamMembers = [
     id: 1,
     name: 'Ben McEwen',
     affiliation: 'Postdoctoral researcher, Tilburg University, Netherlands',
-    description: 'Ben is a Postdoctoral Researcher in AI and Biodiversity applying active learning for biodiversity monitoring at a transnational scale. Previously, Ben researched active learning methods for at-risk and invasive species detection',
+    description: 'Ben is a Postdoctoral Researcher in AI and Biodiversity applying Active Learning to biodiversity monitoring at a transnational scale. Previously, Ben researched Active Learning methods for at-risk and invasive species detection',
     contact: 'benmcewen@outlook.com',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=x47JZUkAAAAJ&view_op=list_works&sortby=pubdate',
     website: 'https://www.benmcewen-phd.com/',
@@ -33,7 +33,7 @@ const teamMembers = [
     id: 4,
     name: 'Shiqi Zhang',
     affiliation: 'PhD Candidate, Tampere University, Finland',
-    description: '',
+    description: "Shiqi Zhang is a PhD candidate in the Audio Research Group at Tampere University. His research focuses on developing Active Learning methods to minimize the manual annotation effort required for bioacoustic data analysis. He is a member of the Bioacoustic AI project, funded by the European Union's Marie Skłodowska-Curie Action.",
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=fnOCg-8AAAAJ&view_op=list_works&sortby=pubdate',
     // website: 'https://example.com/',
     img: '/profiles/shiqi_zhang.jpg'
@@ -42,7 +42,7 @@ const teamMembers = [
     id: 5,
     name: 'Rupa Kurinchi-Vendhan',
     affiliation: 'PhD Candidate, Massachusetts Institute of Technology',
-    description: '',
+    description: 'Rupa Kurinchi-Vendhan is a second-year Ph.D. student in the MIT Department of Electrical Engineering and Computer Science, advised by Professor Sara Beery and supported by the NSF Graduate Research Fellowship and the MIT Tina Chan Fellowship. Her research focuses on expert-in-the-loop systems for scientific discovery in domains with sparse and low-quality data, across modalities.',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=YY9cf7sAAAAJ&view_op=list_works&sortby=pubdate',
     website: 'https://rupakv.com/',
     img: '/profiles/rupa_kurinchi_vendhan.jfif'
@@ -60,7 +60,7 @@ const teamMembers = [
     id: 7,
     name: 'Sara Beery',
     affiliation: 'Associate Professor, Massachusetts Institute of Technology',
-    description: '',
+    description: 'Dr. Sara Beery is the Homer A. Burnell Assistant Professor in the MIT Department of Electrical Engineering and Computer Science. Her research focuses on building computer vision methods that enable global-scale environmental and biodiversity monitoring across data modalities, and her work has been recognized with a Schmidt Sciences AI2050 Early Career Fellowship, an NSF CAREER Grant, and the Amori Doctoral Prize.  She also works to increase access to AI skills through interdisciplinary capacity building and education, and has founded the AI for Conservation slack community, founded and directs the Workshop on Computer Vision Methods for Ecology, and co-leads the NSF/NSERC Global Center on AI and Biodiversity Change.',
     googleScholar: 'https://scholar.google.com/citations?user=Hbr4c10AAAAJ&hl=en&oi=ao',
     website: 'https://beerys.github.io/',
     img: '/profiles/sara_beery.jpeg'
@@ -197,7 +197,7 @@ function TeamMemberCard({ member }) {
 
       {/* Expandable Description */}
       <div style={{
-        maxHeight: expanded ? '250px' : '0',
+        maxHeight: expanded ? '400px' : '0',
         overflow: 'hidden',
         transition: 'max-height 0.3s ease',
       }}>
@@ -406,17 +406,25 @@ export default function BioDCASE() {
       margin: '0 auto',
       color: 'white'
     }}>
-        <h2 style={{fontSize: '14px', color: 'grey'}}>BioDCASE 2026</h2>
-        <h1>Active Learning for Bioacoustics</h1>
+        {/* <h2 style={{fontSize: '14px', color: 'grey'}}>BioDCASE 2026</h2> */}
 
-        <tag>Active Learning, Bioacoustics</tag>
+        <img src='/pages/AL4Bioacoustics.jpg' alt="" style={{width:"100%"}}></img>
 
+        {/* <h1>Active Learning for Bioacoustics</h1> */}
+
+        {/* <tag>Active Learning, Bioacoustics</tag> */}
+        
+        <h3>Description</h3>
         <p>A fundamental challenge across bioacoustics domains (terrestrial and marine) is the annotation of unlabelled data. Passive acoustic monitoring systems generate vast amounts of data, but only a small portion can be feasibly annotated by expert human annotators. Since model performance depends heavily on the quality and quantity of labelled data, this raises the following research question:</p> 
-        <p style={{fontSize: '14px', color: "rgb(171 171 171)", padding: '0px 10% 0px 2%'}}>Given vast amounts of raw acoustic data and limited annotation resources, which data should be prioritised for labelling?</p>
-        <p>Active learning (AL) is a critical strategy for scaling bioacoustic monitoring. AL is an iterative method of data selection, annotation and model training also often within a human-in-the-loop framework. Fundamentally, AL aims to optimise for a learning objective (e.g. model performance) using less labeled data minimising annotation requirements. Participants will design an active learning strategy (acquisition function) to maximise training efficiency across batches of multi-label data considering informativeness quantification, diversification, long-tail performance and cross-domain generalisation.</p>
+        <p style={{fontSize: '18px', 
+                   color: "rgb(207, 207, 207)", 
+                   padding: '0px 10% 0px 2%',
+                   borderLeft: "3px solid rgb(69, 136, 66)"}}>
+          Given vast amounts of raw acoustic data and limited annotation resources, which data should be prioritised for labelling?</p>
+        <p>Active Learning (AL) is a critical strategy for scaling bioacoustic monitoring. AL is an iterative method of data selection, annotation and model training also often within a human-in-the-loop framework. Fundamentally, AL aims to optimise for a learning objective (e.g. model performance) using less labeled data minimising annotation requirements. Participants will design an AL strategy (acquisition function) to maximise training efficiency across batches of multi-label data considering informativeness quantification, diversification, long-tail performance and cross-domain generalisation.</p>
 
         <h3>About BioDCASE</h3>
-        <p>BioDCASE (Evaluation & Benchmarking in Automated Bioacoustics) is an initiative focused on advancing research in computational bioacoustics through annual challenges and workshops. This year the <em>Active learning for Bioacoustics</em> (Task 4) challenge will be running.</p>
+        <p>BioDCASE (Evaluation & Benchmarking in Automated Bioacoustics) is an initiative focused on advancing research in computational bioacoustics through annual challenges and workshops. This year the <em>Active Learning for Bioacoustics</em> (Task 4) challenge will be running.</p>
 
         <p>Learn more about this and other challenges <a href='https://biodcase.github.io/challenge2026/summary' target=''>here</a>.</p>
 
