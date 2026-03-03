@@ -84,7 +84,7 @@ The web interface will be available at `http://localhost:5173`
 
 ```bash
 cd /path/to/BaseAL
-apptainer build --fakeroot apptainer_build/baseal.def baseal.sif
+apptainer build --fakeroot baseal.sif apptainer_build/baseal.def
 ```
 
 ### 2. Start shell within the Apptainer container

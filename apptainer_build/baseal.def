@@ -8,47 +8,49 @@ From: rockylinux/rockylinux:8.10
 %post
     cp /usr/bin/true /usr/sbin/useradd
     cp /usr/bin/true /usr/sbin/groupadd
-
-    dnf -y update
     
-    export PYTHON_VERSION={{PYTHON_VERSION}}
     dnf install -y git curl
     curl -fsSL https://rpm.nodesource.com/setup_{{NODE_MAJOR}}.x | bash -
     dnf install -y nodejs
 
-    # Install uv, a python package manager
     export UV_INSTALL_DIR=/usr/local/bin
     curl -LsSf https://astral.sh/uv/install.sh | sh
 
-    # Set environment variables for uv
+    export UV_ROOT_DIR=/opt/uv
     export UV_LINK_MODE=copy
-    export UV_CACHE_DIR=/opt/uv
-    export UV_PYTHON_CACHE_DIR=/opt/uv
-    export UV_PYTHON_BIN_DIR=/opt/uv
-    export UV_PYTHON_INSTALL_DIR=/opt/uv
-    export UV_TOOL_BIN_DIR=/opt/uv
-    export UV_TOOL_DIR=/opt/uv
+    
+    export UV_CACHE_DIR="${UV_ROOT_DIR}/cache"
+    
+    export UV_PYTHON_INSTALL_DIR="${UV_ROOT_DIR}/python"
+    
+    export UV_TOOL_DIR="${UV_ROOT_DIR}/tools"
+    
+    mkdir -p "$UV_CACHE_DIR" "$UV_PYTHON_INSTALL_DIR" "$UV_TOOL_DIR"
 
-    # Install python
-    uv python install "$PYTHON_VERSION"
+    uv python install "{{PYTHON_VERSION}}"
 
-    # Create and activate a virtual environment
-    uv venv --python "$PYTHON_VERSION" /opt/myenv
+    uv venv --python "{{PYTHON_VERSION}}" /opt/myenv
     . /opt/myenv/bin/activate
     
     cd /
-    git clone https://github.com/BenMcEwen1/BaseAL.git
+    git clone https://github.com/TioSisai/BaseAL.git
     cd BaseAL
+    git clone https://github.com/bioacoustic-ai/bacpipe.git
+    sed -i "/tensorflow==2.15.1; sys_platform == 'win32'/d" bacpipe/pyproject.toml
     UV_PROJECT_ENVIRONMENT=/opt/myenv uv sync
 
+    # Install additional CUDA dependencies for TensorFlow GPU support (bacpipe guidance)
+    UV_PROJECT_ENVIRONMENT=/opt/myenv uv pip install -r bacpipe/requirements_tf_gpu.txt
+
+    uv cache clean
     dnf -y clean all
 
 %environment
     export PYTHON_VERSION={{PYTHON_VERSION}}
+    
     export UV_LINK_MODE=copy
-    export UV_CACHE_DIR=/opt/uv
-    export UV_PYTHON_CACHE_DIR=/opt/uv
-    export UV_PYTHON_BIN_DIR=/opt/uv
-    export UV_PYTHON_INSTALL_DIR=/opt/uv
-    export UV_TOOL_BIN_DIR=/opt/uv
-    export UV_TOOL_DIR=/opt/uv
+    export UV_CACHE_DIR=/opt/uv/cache
+    export UV_PYTHON_INSTALL_DIR=/opt/uv/python
+    export UV_TOOL_DIR=/opt/uv/tools
+    
+    export PATH="/opt/myenv/bin:$PATH"

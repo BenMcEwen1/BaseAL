@@ -8,3 +8,8 @@ ESC50_BASEAL
 results
 test_data
 planning
+
+*.code-workspace
+/.vscode/
+/.pyenv/
+/dataset-generator/

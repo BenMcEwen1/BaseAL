@@ -369,7 +369,9 @@ class ActiveLearner:
             learning_rate: Learning rate for optimizer
             repeats: Number of training repeats for computing mean/std metrics
             device: Device to use ('cpu' or 'cuda')
-            sampling_strategy: Sampling method to use ('random', 'margin', 'custom')
+            sampling_strategy: Sampling method to use
+                              (e.g., 'random', 'margin', 'margin_multilabel',
+                              'coreset_farthest', 'nn_disagreement', 'custom')
             n_samples_per_iteration: Default number of samples to select per iteration
             pretrain_samples: Number of high-density samples to pre-select for warm-up training (optional)
         """
@@ -664,7 +666,9 @@ class ActiveLearner:
             predictions=predictions,
             embeddings=self.embeddings,
             model=self.model,
-            annotations=self.annotations_df
+            annotations=self.annotations_df,
+            labeled_indices=self.labeled_indices,
+            labels=self.labels,
         )
 
         # Debug: Check uncertainty values from sampling strategy

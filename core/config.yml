@@ -10,7 +10,7 @@ experiments:
     learning_rate: 0.001
     repeats: 2
     device: cpu
-    pretrain_samples: null 
+    pretrain_samples: null
 
   - name: Margin
     embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
@@ -20,14 +20,24 @@ experiments:
     learning_rate: 0.001
     repeats: 2
     device: cpu
-    pretrain_samples: null 
+    pretrain_samples: null
 
-  # - name: Margin
-  #   embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
-  #   annotations_path: ESC10_BASEAL/labels.csv
-  #   hidden_dim: null
-  #   sampling_strategy: margin
-  #   learning_rate: 0.001
-  #   repeats: 2
-  #   device: cpu
-  #   pretrain_samples: null 
+  - name: CoreSet
+    embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
+    annotations_path: ESC10_BASEAL/labels.csv
+    hidden_dim: null
+    sampling_strategy: coreset_farthest
+    learning_rate: 0.001
+    repeats: 2
+    device: cpu
+    pretrain_samples: null
+
+  - name: NearestNeighborDisagreement
+    embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
+    annotations_path: ESC10_BASEAL/labels.csv
+    hidden_dim: null
+    sampling_strategy: nn_disagreement
+    learning_rate: 0.001
+    repeats: 2
+    device: cpu
+    pretrain_samples: null
