@@ -22,7 +22,8 @@ dependencies = [
     "scikit-learn>=1.3.0",
     "python-multipart>=0.0.6",
     "umap-learn",
-    "scikit-activeml>=0.6.2"
+    "scikit-activeml>=0.6.2",
+    "faiss-cpu"
 ]
 
 [tool.setuptools]
