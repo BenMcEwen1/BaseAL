@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 export default function NotebookRenderer({ notebookPath }) {
   const [notebook, setNotebook] = useState(null);
@@ -85,7 +87,7 @@ export default function NotebookRenderer({ notebookPath }) {
             marginBottom: '24px',
             padding: '16px',
             background: '#1a1a1a',
-            borderRadius: '8px',
+            // borderRadius: '8px',
             borderLeft: '4px solid #4ae290'
           }}
         >
@@ -127,34 +129,42 @@ export default function NotebookRenderer({ notebookPath }) {
                   marginBottom: '12px'
                 }} {...props} />
               ),
-              code: ({node, inline, ...props}) => (
-                inline ?
+              code: ({node, className, children, ...props}) => {
+                const match = /language-(\w+)/.exec(className || '');
+                const isBlock = Boolean(match) || node?.position?.start?.line !== node?.position?.end?.line;
+                // Also detect block code by checking if parent is pre
+                const parentIsBlock = node?.parentNode?.tagName === 'pre' ||
+                  (typeof children === 'string' && children.includes('\n'));
+                return (isBlock || parentIsBlock) ? (
+                  <SyntaxHighlighter
+                    style={vscDarkPlus}
+                    language={match ? match[1] : 'text'}
+                    customStyle={{
+                      margin: 0,
+                      padding: '12px',
+                      fontSize: '11px',
+                      borderRadius: '6px',
+                      background: '#0a0a0a',
+                    }}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
                   <code style={{
                     background: '#2a2a2a',
                     padding: '2px 6px',
                     borderRadius: '4px',
                     color: '#4ae290',
                     fontSize: '11px'
-                  }} {...props} /> :
-                  <code style={{
-                    display: 'block',
-                    background: '#0a0a0a',
-                    padding: '12px',
-                    borderRadius: '6px',
-                    color: '#4ae290',
-                    fontSize: '11px',
-                    overflowX: 'auto',
-                    whiteSpace: 'pre'
-                  }} {...props} />
-              ),
-              pre: ({node, ...props}) => (
-                <pre style={{
-                  background: '#0a0a0a',
-                  padding: '12px',
-                  borderRadius: '6px',
-                  overflowX: 'auto',
-                  marginBottom: '12px'
-                }} {...props} />
+                  }} {...props}>
+                    {children}
+                  </code>
+                );
+              },
+              pre: ({node, children, ...props}) => (
+                <div style={{ marginBottom: '12px' }}>
+                  {children}
+                </div>
               ),
               ul: ({node, ...props}) => (
                 <ul style={{
@@ -191,6 +201,34 @@ export default function NotebookRenderer({ notebookPath }) {
                   textDecoration: 'none'
                 }} {...props} />
               ),
+              table: ({node, ...props}) => (
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  marginBottom: '12px',
+                  fontSize: '12px'
+                }} {...props} />
+              ),
+              thead: ({node, ...props}) => (
+                <thead style={{
+                  borderBottom: '2px solid #444'
+                }} {...props} />
+              ),
+              th: ({node, ...props}) => (
+                <th style={{
+                  color: '#fff',
+                  padding: '8px 12px',
+                  textAlign: 'left',
+                  fontWeight: '600'
+                }} {...props} />
+              ),
+              td: ({node, ...props}) => (
+                <td style={{
+                  color: '#ccc',
+                  padding: '8px 12px',
+                  borderBottom: '1px solid #333'
+                }} {...props} />
+              ),
             }}
           >
             {source}
@@ -210,7 +248,7 @@ export default function NotebookRenderer({ notebookPath }) {
           {source && (
             <div style={{
               background: '#0a0a0a',
-              borderRadius: '8px 8px 0 0',
+              // borderRadius: '8px 8px 0 0',
               padding: '16px',
               borderLeft: '4px solid #3a86ff'
             }}>
@@ -223,16 +261,18 @@ export default function NotebookRenderer({ notebookPath }) {
               }}>
                 Input
               </div>
-              <pre style={{
-                margin: 0,
-                color: '#4ae290',
-                fontSize: '11px',
-                whiteSpace: 'pre-wrap',
-                wordWrap: 'break-word',
-                fontFamily: 'monospace'
-              }}>
+              <SyntaxHighlighter
+                style={vscDarkPlus}
+                language={notebook.metadata?.kernelspec?.language || 'python'}
+                customStyle={{
+                  margin: 0,
+                  padding: 0,
+                  fontSize: '11px',
+                  background: 'transparent',
+                }}
+              >
                 {source}
-              </pre>
+              </SyntaxHighlighter>
             </div>
           )}
 
@@ -240,9 +280,9 @@ export default function NotebookRenderer({ notebookPath }) {
           {outputs.length > 0 && (
             <div style={{
               background: '#1a1a1a',
-              borderRadius: source ? '0 0 8px 8px' : '8px',
+              // borderRadius: source ? '0 0 8px 8px' : '8px',
               padding: '16px',
-              borderLeft: '4px solid #ff6b6b',
+              borderLeft: '4px solid #888',
               borderTop: source ? '1px solid #333' : 'none'
             }}>
               <div style={{

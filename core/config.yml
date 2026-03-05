@@ -2,6 +2,17 @@
 
 experiments:
   # New Data format
+  # - name: Random
+  #   embeddings_dir: ATBFL_BASEAL/embeddings/perch_v2/
+  #   annotations_path: ATBFL_BASEAL/labels.csv
+  #   model_name: perch_v2
+  #   hidden_dim: null
+  #   sampling_strategy: random
+  #   learning_rate: 0.001
+  #   repeats: 2
+  #   device: cpu
+  #   pretrain_samples: null
+
   - name: Random
     embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
     annotations_path: ESC10_BASEAL/labels.csv

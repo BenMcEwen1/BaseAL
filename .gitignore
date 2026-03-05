@@ -1,9 +1,13 @@
 /data
 ESC50_BASEAL
+ATBFL_BASEAL
+ATBFL_BASEAL.zip
 *.wav
+.cache
 .venv
 *.egg-info
 .claude
+nul
 
 results
 test_data

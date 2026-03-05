@@ -76,14 +76,20 @@ class Manager:
     Manages multiple parallel Active Learning experiments
     """
 
-    def __init__(self, config_path: Path, base_dir: Optional[Path] = None):
+    def __init__(self, config_path: Path, base_dir: Optional[Path] = None, verbose: bool = True):
         """
         Initialize Manager with experiments from config file
 
         Args:
             config_path: Path to YAML configuration file
             base_dir: Base directory for resolving relative paths in config (defaults to config file's parent)
+            verbose: Whether to enable INFO-level logging (default True). Set False to suppress logs.
         """
+        self.verbose = verbose
+        if not verbose:
+            logger.setLevel(logging.WARNING)
+            logging.getLogger("core.utils.sampling").setLevel(logging.WARNING)
+
         self.config_path = Path(config_path)
         self.base_dir = Path(base_dir) if base_dir else self.config_path.parent
         self.configs = self._load_configs(self.config_path)
@@ -137,6 +143,9 @@ class Manager:
             # Extract experiment name if provided, otherwise use index
             exp_name = config.pop('name', f'experiment_{i}')
             self.experiment_names.append(exp_name)
+
+            # Propagate verbose setting to each ActiveLearner
+            config.setdefault('verbose', self.verbose)
 
             logger.info(f"Initializing experiment: {exp_name}")
             learner = ActiveLearner(**config)
@@ -355,7 +364,8 @@ class ActiveLearner:
         device: str = "cpu",
         sampling_strategy: str = "random",
         n_samples_per_iteration: int = 5,
-        pretrain_samples: Optional[int] = None
+        pretrain_samples: Optional[int] = None,
+        verbose: bool = True
     ):
         """
         Initialize active learner
@@ -374,7 +384,11 @@ class ActiveLearner:
                               'coreset_farthest', 'nn_disagreement', 'custom')
             n_samples_per_iteration: Default number of samples to select per iteration
             pretrain_samples: Number of high-density samples to pre-select for warm-up training (optional)
+            verbose: Whether to enable INFO-level logging (default True). Set False to suppress logs.
         """
+        if not verbose:
+            logger.setLevel(logging.WARNING)
+            logging.getLogger("core.utils.sampling").setLevel(logging.WARNING)
         self.embeddings_dir = embeddings_dir
         self.annotations_path = annotations_path
         self.model_name = model_name
@@ -438,9 +452,9 @@ class ActiveLearner:
         self.sampling_strategy = SamplingStrategy(method=sampling_strategy, n_samples=n_samples_per_iteration)
         logger.info(f"Initialized '{sampling_strategy}' sampling strategy with n_samples={n_samples_per_iteration}")
 
-        # Active learning state
-        self.labeled_indices = []
-        self.unlabeled_indices = list(range(len(self.embeddings)))
+        # Active learning state (sets for O(1) membership test and removal)
+        self.labeled_indices = set()
+        self.unlabeled_indices = set(range(len(self.embeddings)))
         self.training_history = []
 
         # Pre-training warm-up: select high-density samples if specified
@@ -455,6 +469,9 @@ class ActiveLearner:
         # Dimensionality reduction (fitted once and reused)
         self.reducer = None
         self.scaler = None
+
+        # Batch size for full-dataset inference (predictions / evaluation)
+        self.inference_batch_size = 4096
 
         logger.info(f"Initialised ActiveLearner with {len(self.embeddings)} samples and {num_classes} classes")
 
@@ -474,35 +491,25 @@ class ActiveLearner:
             annotations_df: DataFrame containing the matched annotations with metadata
         """
         # Load annotations
-        import sys
-        print(f"Loading annotations from: {self.annotations_path}", file=sys.stderr)
-        sys.stderr.flush()
+        logger.info(f"Loading annotations from: {self.annotations_path}")
         df = pd.read_csv(self.annotations_path)
-        print(f"Loaded {len(df)} annotations", file=sys.stderr)
-        sys.stderr.flush()
+        logger.info(f"Loaded {len(df)} annotations")
 
-        # Detect if data is multilabel by checking for semicolons in labels
+        # --- Detect multilabel and build label mappings (vectorized) -----------
         label_column = 'label'
-        sample_labels = df[label_column].astype(str) #.head(100)
-        is_multilabel = sample_labels.str.contains(';').any()
+        label_strings = df[label_column].astype(str)
+        is_multilabel = label_strings.str.contains(';').any()
 
         if is_multilabel:
             logger.info("Detected MULTILABEL format (semicolon-separated labels)")
         else:
             logger.info("Detected SINGLE-LABEL format")
 
-        # Extract all unique labels across dataset
-        all_labels = set()
-        for label_str in df[label_column].astype(str):
-            if ';' in label_str:
-                # Multilabel case: split by semicolon
-                labels_in_row = label_str.split(';')
-                all_labels.update(labels_in_row)
-            else:
-                # Single label case
-                all_labels.add(label_str)
+        # Extract all unique labels using vectorized split
+        all_labels: set = set()
+        for lbl in label_strings.str.split(';').explode().str.strip().unique():
+            all_labels.add(lbl)
 
-        # Create mappings
         unique_labels = sorted(all_labels)
         label_to_idx = {label: idx for idx, label in enumerate(unique_labels)}
         idx_to_label = {idx: label for label, idx in label_to_idx.items()}
@@ -510,73 +517,97 @@ class ActiveLearner:
 
         logger.info(f"Found {num_classes} unique classes: {unique_labels}")
 
-        # Load embeddings and match with annotations
-        embeddings_list = []
-        labels_list = []
-        annotations_list = []  # Track matched annotation rows
+        # --- Build embedding filenames and filter to existing files -----------
+        # Construct expected embedding path for every annotation row
+        stems = df['filename'].apply(lambda f: Path(f).stem)
+        embedding_names = stems + f"_{self.model_name}.npy"
 
-        # Map audio filenames to embeddings
-        for _, row in df.iterrows():
-            audio_filename = row['filename']
-            label_str = str(row[label_column])
+        # Single directory listing instead of N individual Path.exists() calls
+        existing_files = set(p.name for p in self.embeddings_dir.iterdir())
+        exists_mask = embedding_names.isin(existing_files)
 
-            # Construct embedding filename
-            # Convert audio\FewShot\CHE_01_20190101_163410.wav -> CHE_01_20190101_163410_birdnet.npy
-            filename_parts = Path(audio_filename).stem
-            embedding_filename = f"{filename_parts}_{self.model_name}.npy"
+        n_missing = (~exists_mask).sum()
+        if n_missing > 0:
+            logger.warning(f"{n_missing} annotation rows have no matching embedding file — skipped")
 
-            embedding_path = self.embeddings_dir / embedding_filename
+        # Filter to matched rows only
+        df_matched = df[exists_mask].reset_index(drop=True)
+        embedding_names_matched = embedding_names[exists_mask].values
+        label_strings_matched = label_strings[exists_mask].values
 
-            if embedding_path.exists():
-                # Load embedding - new format: each file is a single segment embedding
-                emb = np.load(embedding_path)
+        n_matched = len(df_matched)
+        logger.info(f"Matched {n_matched} annotations to embedding files")
 
-                # Handle both 1D (single embedding) and 2D (batch of 1) shapes
+        # --- Load embeddings (with cache) -------------------------------------
+        cache_dir = self.embeddings_dir / ".cache"
+        manifest_path = cache_dir / "manifest.json"
+        cache_path = cache_dir / "embeddings.npy"
+
+        # Check if a valid cache exists: manifest filenames must match current matched set
+        filenames_list = list(embedding_names_matched)
+        cache_hit = False
+        if manifest_path.exists():
+            with open(manifest_path, 'r') as f:
+                manifest = json.load(f)
+            if manifest.get("filenames") == filenames_list:
+                embeddings = np.load(str(cache_path), mmap_mode='r')
+                cache_hit = True
+                logger.info(f"Loaded cached embeddings: {embeddings.shape}")
+
+        if not cache_hit:
+            # Load individual files (slow for large datasets)
+            embedding_paths = [self.embeddings_dir / name for name in embedding_names_matched]
+
+            sample_emb = np.load(embedding_paths[0])
+            if sample_emb.ndim == 1:
+                emb_dim = sample_emb.shape[0]
+            else:
+                emb_dim = sample_emb.shape[1] if len(sample_emb) == 1 else sample_emb.size
+
+            embeddings = np.empty((n_matched, emb_dim), dtype=np.float32)
+
+            def _load_one(idx: int) -> None:
+                emb = np.load(embedding_paths[idx])
                 if emb.ndim == 1:
-                    embeddings_list.append(emb)
+                    embeddings[idx] = emb
                 else:
-                    embeddings_list.append(emb[0] if len(emb) == 1 else emb.flatten())
+                    embeddings[idx] = emb[0] if len(emb) == 1 else emb.flatten()
 
-                # Parse labels based on format
-                if ';' in label_str:
-                    # Multilabel: create binary vector
-                    label_vector = np.zeros(num_classes, dtype=np.float32)
-                    for lbl in label_str.split(';'):
-                        lbl = lbl.strip()
-                        if lbl in label_to_idx:
-                            label_vector[label_to_idx[lbl]] = 1.0
-                    labels_list.append(label_vector)
-                else:
-                    # Single-label: use integer index
-                    if is_multilabel:
-                        # If dataset is multilabel but this sample has single label,
-                        # still use binary vector format for consistency
-                        label_vector = np.zeros(num_classes, dtype=np.float32)
-                        label_vector[label_to_idx[label_str]] = 1.0
-                        labels_list.append(label_vector)
-                    else:
-                        # Pure single-label dataset
-                        labels_list.append(label_to_idx[label_str])
+            if sample_emb.ndim == 1:
+                embeddings[0] = sample_emb
+            else:
+                embeddings[0] = sample_emb[0] if len(sample_emb) == 1 else sample_emb.flatten()
 
-                # Store the annotation row for this sample
-                annotations_list.append(row)
+            if n_matched > 1:
+                max_workers = min(8, n_matched - 1)
+                with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                    list(pool.map(_load_one, range(1, n_matched)))
 
-        embeddings = np.array(embeddings_list, dtype=np.float32)
+            # Save consolidated cache for fast future loads
+            cache_dir.mkdir(exist_ok=True)
+            np.save(str(cache_path), embeddings)
+            with open(manifest_path, 'w') as f:
+                json.dump({"filenames": filenames_list}, f)
+            logger.info(f"Saved embedding cache to {cache_dir}")
 
-        # Create DataFrame from matched annotations
-        annotations_df = pd.DataFrame(annotations_list).reset_index(drop=True)
-
+        # --- Build label arrays (vectorized) ----------------------------------
         if is_multilabel:
-            # Multilabel: shape (n_samples, num_classes)
-            labels = np.array(labels_list, dtype=np.float32)
-            logger.info(f"Loaded {len(embeddings)} embeddings with shape {embeddings.shape}")
+            # Multilabel: build binary matrix
+            labels = np.zeros((n_matched, num_classes), dtype=np.float32)
+            for i, lbl_str in enumerate(label_strings_matched):
+                for lbl in lbl_str.split(';'):
+                    lbl = lbl.strip()
+                    if lbl in label_to_idx:
+                        labels[i, label_to_idx[lbl]] = 1.0
+            logger.info(f"Loaded {n_matched} embeddings with shape {embeddings.shape}")
             logger.info(f"Labels shape: {labels.shape} (multilabel binary vectors)")
         else:
-            # Single-label: shape (n_samples,)
-            labels = np.array(labels_list, dtype=np.int64)
-            logger.info(f"Loaded {len(embeddings)} embeddings with shape {embeddings.shape}")
+            # Single-label: vectorized map to integer indices
+            labels = np.array([label_to_idx[s] for s in label_strings_matched], dtype=np.int64)
+            logger.info(f"Loaded {n_matched} embeddings with shape {embeddings.shape}")
             logger.info(f"Labels shape: {labels.shape} (single-label indices)")
 
+        annotations_df = df_matched
         logger.info(f"Annotations DataFrame shape: {annotations_df.shape}")
 
         return embeddings, labels, label_to_idx, idx_to_label, annotations_df
@@ -614,14 +645,40 @@ class ActiveLearner:
         top_density_indices = np.argsort(density_scores)[-n_samples:]
 
         # Add these samples to labeled set
-        self.labeled_indices = top_density_indices.tolist()
+        self.labeled_indices = set(top_density_indices.tolist())
 
         # Remove from unlabeled set
-        self.unlabeled_indices = [idx for idx in range(len(self.embeddings))
-                                  if idx not in self.labeled_indices]
+        self.unlabeled_indices = set(range(len(self.embeddings))) - self.labeled_indices
 
         logger.info(f"Pre-training warm-up complete: selected {len(self.labeled_indices)} high-density samples")
         logger.info(f"Remaining unlabeled samples: {len(self.unlabeled_indices)}")
+
+    def _predict_all(self) -> np.ndarray:
+        """
+        Run batched inference on the full embedding matrix.
+
+        Returns:
+            probabilities: Array of shape (n_samples, num_classes) with class
+                           probabilities (softmax for single-label, sigmoid for multilabel).
+        """
+        self.model.eval()
+        n = len(self.embeddings)
+        bs = self.inference_batch_size
+        chunks = []
+
+        with torch.no_grad():
+            for start in range(0, n, bs):
+                batch = torch.from_numpy(self.embeddings[start:start + bs]).to(self.device)
+                out = self.model(batch)
+
+                if self.is_multilabel:
+                    probs = torch.sigmoid(out)
+                else:
+                    probs = torch.softmax(out, dim=1)
+
+                chunks.append(probs.cpu().numpy())
+
+        return np.concatenate(chunks, axis=0)
 
     def sample(self, n_samples: Optional[int] = None) -> List[int]:
         """
@@ -643,31 +700,22 @@ class ActiveLearner:
             original_n = self.sampling_strategy.n_samples
             self.sampling_strategy.n_samples = n_samples
 
-        # Get predictions if model has been trained
-        predictions = None
-        # if len(self.labeled_indices) > 0:  # Only get predictions if model is trained
-        self.model.eval()
-        with torch.no_grad():
-            X_all = torch.from_numpy(self.embeddings).to(self.device)
-            outputs = self.model(X_all)
+        # Get predictions for all samples (batched to avoid OOM on large datasets)
+        predictions = self._predict_all()
 
-            # Use appropriate activation based on single-label vs multilabel
-            if self.is_multilabel:
-                # Multilabel: use sigmoid for independent class probabilities
-                predictions = torch.sigmoid(outputs).cpu().numpy()
-            else:
-                # Single-label: use softmax for mutually exclusive classes
-                predictions = torch.softmax(outputs, dim=1).cpu().numpy()
+        # Convert sets to sorted lists for numpy indexing in sampling strategies
+        unlabeled_list = sorted(self.unlabeled_indices)
+        labeled_list = sorted(self.labeled_indices)
 
         # Call the sampling strategy with all available data
         # Now returns both selected indices and uncertainties
         selected, unlabeled_uncertainties = self.sampling_strategy.select(
-            unlabeled_indices=self.unlabeled_indices,
+            unlabeled_indices=unlabeled_list,
             predictions=predictions,
             embeddings=self.embeddings,
             model=self.model,
             annotations=self.annotations_df,
-            labeled_indices=self.labeled_indices,
+            labeled_indices=labeled_list,
             labels=self.labels,
         )
 
@@ -679,7 +727,7 @@ class ActiveLearner:
         # Labeled samples have uncertainty = 0
         self.uncertainties = np.zeros(len(self.embeddings))
         # Unlabeled samples have computed uncertainty
-        self.uncertainties[self.unlabeled_indices] = unlabeled_uncertainties
+        self.uncertainties[unlabeled_list] = unlabeled_uncertainties
 
         # Debug: Check final uncertainties
         logger.info(f"Final uncertainties - min: {self.uncertainties.min():.4f}, max: {self.uncertainties.max():.4f}")
@@ -699,10 +747,9 @@ class ActiveLearner:
         Args:
             indices: List of indices to add to labeled set
         """
-        for idx in indices:
-            if idx in self.unlabeled_indices:
-                self.unlabeled_indices.remove(idx)
-                self.labeled_indices.append(idx)
+        moved = self.unlabeled_indices.intersection(indices)
+        self.unlabeled_indices -= moved
+        self.labeled_indices |= moved
 
         logger.info(f"Added {len(indices)} samples. Labeled: {len(self.labeled_indices)}, Unlabeled: {len(self.unlabeled_indices)}")
 
@@ -803,9 +850,10 @@ class ActiveLearner:
 
             self.model.train()
 
-            # Prepare labeled data
-            X_train_orig = torch.from_numpy(self.embeddings[self.labeled_indices]).to(self.device)
-            y_train_orig = torch.from_numpy(self.labels[self.labeled_indices]).to(self.device)
+            # Prepare labeled data (convert set to sorted list for numpy indexing)
+            labeled_list = sorted(self.labeled_indices)
+            X_train_orig = torch.from_numpy(self.embeddings[labeled_list]).to(self.device)
+            y_train_orig = torch.from_numpy(self.labels[labeled_list]).to(self.device)
 
             # Training loop
             total_loss = 0.0
@@ -844,97 +892,89 @@ class ActiveLearner:
 
                 total_loss = epoch_loss / train_length
 
-            # Evaluation on all data
-            self.model.eval()
-            with torch.no_grad():
-                # Get predictions for all data
-                X_all = torch.from_numpy(self.embeddings).to(self.device)
-                outputs = self.model(X_all)
-                num_classes = len(self.label_to_idx)
+            # Evaluation on all data (batched to avoid OOM on large datasets)
+            probabilities = self._predict_all()
+            num_classes = len(self.label_to_idx)
 
-                if self.is_multilabel:
-                    # Multilabel: use sigmoid to get probabilities for each class
-                    probabilities = torch.sigmoid(outputs).cpu().numpy()
-                    # Use threshold of 0.5 for predictions
-                    predicted_np = (probabilities > 0.5).astype(int)
-                    labels_np = self.labels  # Already in binary vector format
+            if self.is_multilabel:
+                # Use threshold of 0.5 for predictions
+                predicted_np = (probabilities > 0.5).astype(int)
+                labels_np = self.labels  # Already in binary vector format
 
-                    # Calculate accuracy (exact match ratio - all labels must match)
-                    exact_match = np.all(predicted_np == labels_np, axis=1)
-                    accuracy = exact_match.mean()
+                # Calculate accuracy (exact match ratio - all labels must match)
+                exact_match = np.all(predicted_np == labels_np, axis=1)
+                accuracy = exact_match.mean()
 
-                    # Calculate F1 score (samples average for multilabel)
-                    # This calculates F1 for each sample and averages
-                    f1 = f1_score(labels_np, predicted_np, average='samples', zero_division=0)
+                # Calculate F1 score (samples average for multilabel)
+                # This calculates F1 for each sample and averages
+                f1 = f1_score(labels_np, predicted_np, average='samples', zero_division=0)
 
-                    # Calculate mAP (mean Average Precision) for multilabel
-                    try:
-                        aps = []
-                        for class_idx in range(num_classes):
-                            if labels_np[:, class_idx].sum() > 0:  # Only if class has samples
-                                ap = average_precision_score(
-                                    labels_np[:, class_idx],
-                                    probabilities[:, class_idx]
-                                )
-                                aps.append(ap)
-                        mAP = np.mean(aps) if len(aps) > 0 else 0.0
-                    except:
-                        mAP = 0.0
-                        logger.warning("mAP calculation failed, using 0.0")
+                # Calculate mAP (mean Average Precision) for multilabel
+                try:
+                    aps = []
+                    for class_idx in range(num_classes):
+                        if labels_np[:, class_idx].sum() > 0:  # Only if class has samples
+                            ap = average_precision_score(
+                                labels_np[:, class_idx],
+                                probabilities[:, class_idx]
+                            )
+                            aps.append(ap)
+                    mAP = np.mean(aps) if len(aps) > 0 else 0.0
+                except:
+                    mAP = 0.0
+                    logger.warning("mAP calculation failed, using 0.0")
 
-                    # For calibration in multilabel, use the maximum probability
-                    max_probs = np.max(probabilities, axis=1)
-                    # Create pseudo single-label for calibration visualization
-                    pseudo_predicted = np.argmax(predicted_np, axis=1)
-                    pseudo_labels = np.argmax(labels_np, axis=1)
-                    calibration_data = self._calculate_calibration_metrics(
-                        probabilities, pseudo_predicted, pseudo_labels
-                    )
+                # For calibration in multilabel, use the maximum probability
+                max_probs = np.max(probabilities, axis=1)
+                # Create pseudo single-label for calibration visualization
+                pseudo_predicted = np.argmax(predicted_np, axis=1)
+                pseudo_labels = np.argmax(labels_np, axis=1)
+                calibration_data = self._calculate_calibration_metrics(
+                    probabilities, pseudo_predicted, pseudo_labels
+                )
 
+            else:
+                # Single-label: probabilities already from _predict_all()
+                predicted_np = np.argmax(probabilities, axis=1)
+                labels_np = self.labels
+
+                # Calculate accuracy
+                correct = (predicted_np == labels_np).sum()
+                accuracy = correct / len(labels_np) if len(labels_np) > 0 else 0.0
+
+                # Calculate F1 score (macro average)
+                if num_classes > 2:
+                    f1 = f1_score(labels_np, predicted_np, average='macro', zero_division=0)
                 else:
-                    # Single-label: use softmax to get probabilities
-                    probabilities = torch.softmax(outputs, dim=1).cpu().numpy()
-                    _, predicted = torch.max(outputs, 1)
-                    predicted_np = predicted.cpu().numpy()
-                    labels_np = self.labels
+                    f1 = f1_score(labels_np, predicted_np, average='binary', zero_division=0)
 
-                    # Calculate accuracy
-                    correct = (predicted_np == labels_np).sum().item()
-                    accuracy = correct / len(labels_np) if len(labels_np) > 0 else 0.0
+                # Calculate mAP (mean Average Precision)
+                # For multiclass, we use one-vs-rest approach
+                try:
+                    # Create one-hot encoding for true labels
+                    labels_onehot = np.zeros((len(labels_np), num_classes))
+                    labels_onehot[np.arange(len(labels_np)), labels_np] = 1
 
-                    # Calculate F1 score (macro average)
-                    if num_classes > 2:
-                        f1 = f1_score(labels_np, predicted_np, average='macro', zero_division=0)
-                    else:
-                        f1 = f1_score(labels_np, predicted_np, average='binary', zero_division=0)
+                    # Calculate average precision for each class
+                    aps = []
+                    for class_idx in range(num_classes):
+                        if labels_onehot[:, class_idx].sum() > 0:  # Only if class has samples
+                            ap = average_precision_score(
+                                labels_onehot[:, class_idx],
+                                probabilities[:, class_idx]
+                            )
+                            aps.append(ap)
 
-                    # Calculate mAP (mean Average Precision)
-                    # For multiclass, we use one-vs-rest approach
-                    try:
-                        # Create one-hot encoding for true labels
-                        labels_onehot = np.zeros((len(labels_np), num_classes))
-                        labels_onehot[np.arange(len(labels_np)), labels_np] = 1
+                    mAP = np.mean(aps) if len(aps) > 0 else 0.0
+                except:
+                    # Fallback if mAP calculation fails
+                    mAP = 0.0
+                    logger.warning("mAP calculation failed, using 0.0")
 
-                        # Calculate average precision for each class
-                        aps = []
-                        for class_idx in range(num_classes):
-                            if labels_onehot[:, class_idx].sum() > 0:  # Only if class has samples
-                                ap = average_precision_score(
-                                    labels_onehot[:, class_idx],
-                                    probabilities[:, class_idx]
-                                )
-                                aps.append(ap)
-
-                        mAP = np.mean(aps) if len(aps) > 0 else 0.0
-                    except:
-                        # Fallback if mAP calculation fails
-                        mAP = 0.0
-                        logger.warning("mAP calculation failed, using 0.0")
-
-                    # Calculate calibration metrics
-                    calibration_data = self._calculate_calibration_metrics(
-                        probabilities, predicted_np, labels_np
-                    )
+                # Calculate calibration metrics
+                calibration_data = self._calculate_calibration_metrics(
+                    probabilities, predicted_np, labels_np
+                )
 
             # Store metrics for this repeat
             avg_loss = total_loss / max(1, len(X_train_orig) // batch_size)
@@ -1183,8 +1223,8 @@ class ActiveLearner:
         return {
             "n_labeled": int(len(self.labeled_indices)),
             "n_unlabeled": int(len(self.unlabeled_indices)),
-            "labeled_indices": [int(idx) for idx in self.labeled_indices],
-            "unlabeled_indices": [int(idx) for idx in self.unlabeled_indices],
+            "labeled_indices": sorted(self.labeled_indices),
+            "unlabeled_indices": sorted(self.unlabeled_indices),
             "training_history": self.training_history,
             "num_classes": int(len(self.label_to_idx)),
             "labels": list(self.label_to_idx.keys()),  # Already strings from initialization

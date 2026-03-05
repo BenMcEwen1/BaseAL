@@ -154,6 +154,8 @@ class SamplingStrategy:
         self.labeled_indices = labeled_indices if labeled_indices is not None else []
         self.labels = labels
 
+        # print(len(self.labels))
+
         # Call the appropriate sampling method to get uncertainties
         sampling_func = self._method_map[self.method]
         uncertainties = np.asarray(sampling_func(), dtype=np.float32)
@@ -226,9 +228,9 @@ class SamplingStrategy:
 
         1. This method should compute utility scores for all unlabeled samples.
 
-        2. The uncertainty scores should be normalized to [0, 1] where:
-           - 1.0 = maximum uncertainty (highest priority for annotation)
-           - 0.0 = complete certainty (lowest priority for annotation)
+        2. The utility scores should be normalized to [0, 1] where:
+           - 1.0 = maximum utility (highest priority for annotation)
+           - 0.0 = lowest utility (lowest priority for annotation)
 
         3. Available instance attributes (set by select() method):
            - self.unlabeled_indices: List of indices in the unlabeled pool

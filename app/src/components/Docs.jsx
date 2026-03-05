@@ -3,10 +3,10 @@ import NotebookRenderer from './NotebookRenderer';
 
 // Import notebooks directly as URLs
 import notebook00 from '../../../core/docs/00_introduction.ipynb?url';
-import notebook01 from '../../../core/docs/01_understanding_data.ipynb?url';
-import notebook02 from '../../../core/docs/02_neural_network_model.ipynb?url';
-import notebook03 from '../../../core/docs/03_active_learning_loop.ipynb?url';
-import notebook04 from '../../../core/docs/04_visualization_pca.ipynb?url';
+import notebook01 from '../../../core/docs/01_getting_started.ipynb?url';
+import notebook02 from '../../../core/docs/02_understanding_data.ipynb?url';
+import notebook03 from '../../../core/docs/03_neural_network_model.ipynb?url';
+import notebook04 from '../../../core/docs/04_active_learning_loop.ipynb?url';
 import notebook05 from '../../../core/docs/05_complete_pipeline.ipynb?url';
 import notebook06 from '../../../core/docs/06_experiment_manager.ipynb?url';
 
@@ -18,22 +18,22 @@ const NOTEBOOKS = [
   },
   {
     id: '01',
-    title: '1. Understanding the Data',
+    title: '1. Getting Started',
     path: notebook01
   },
   {
     id: '02',
-    title: '2. Neural Network Model',
+    title: '2. Understanding the Data',
     path: notebook02
   },
   {
     id: '03',
-    title: '3. Active Learning Loop',
+    title: '3. Neural Network Model',
     path: notebook03
   },
   {
     id: '04',
-    title: '4. Visualization (PCA)',
+    title: '4. Active Learning Loop',
     path: notebook04
   },
   {

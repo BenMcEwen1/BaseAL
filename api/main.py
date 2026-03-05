@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
+import tomllib
 import numpy as np
 from typing import List, Dict, Any, Optional
 import logging
@@ -23,6 +24,11 @@ import io
 # Add core module to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.active_learner import ActiveLearner, Manager
+
+# Read version from pyproject.toml (single source of truth)
+_pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+with open(_pyproject_path, "rb") as f:
+    __version__ = tomllib.load(f)["project"]["version"]
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -116,7 +122,7 @@ def load_embeddings_from_folder(folder_path: Path) -> List[Dict[str, Any]]:
 
 @app.get("/")
 def info():
-    return {"message": "BaseAL Embeddings API", "version": "1.1.0"}
+    return {"message": "BaseAL Embeddings API", "version": __version__}
 
 # @app.get("/api/generate")
 # def generate_embeddings():

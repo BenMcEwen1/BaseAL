@@ -270,7 +270,7 @@ export default function Home({ onGetStarted, onDocsClick, onChallengesClick, isM
             margin: 0,
             letterSpacing: isMobile ? '5px' : '10px'
           }}>
-            Base<b style={{fontWeight: '500'}}>AL</b><p style={{fontSize: isMobile ? '10px' : '12px', letterSpacing: '5px', paddingLeft: '5px'}}>v1.1.0</p>
+            Base<b style={{fontWeight: '500'}}>AL</b><p style={{fontSize: isMobile ? '10px' : '12px', letterSpacing: '5px', paddingLeft: '5px'}}>v{__APP_VERSION__}</p>
           </h1>
         </div>
 

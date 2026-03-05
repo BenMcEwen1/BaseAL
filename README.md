@@ -6,7 +6,7 @@
 </h1>
 
 
->BaseAL is an framework for developing and evaluating active learning methods. BaseAL (v1.1.0) currently focuses on audio and bioacoustic data. 
+>BaseAL is a framework for developing and evaluating active learning methods. BaseAL (v1.1.1) currently focuses on audio and bioacoustic data. 
 
 The tool provides a complete pipeline for evaluating sampling strategies and 3D visualisation.
 
@@ -22,7 +22,7 @@ The tool provides a complete pipeline for evaluating sampling strategies and 3D 
 
 **For BaseAL compatible dataset generation see the [dataset generator](https://github.com/BenMcEwen1/dataset-generator). You can download the ESC50 demo data [here](https://drive.google.com/file/d/183yLkZ1G8W3nXESkxcs1NERPGuFhofXu/view?usp=sharing).*
 
-## Setup
+# Setup
 
 ### 1. Clone the Repository
 
@@ -31,13 +31,20 @@ git clone https://github.com/benmcewen1/BaseAL.git
 cd BaseAL
 ```
 
-### 2. Set Up Python Dependencies (Backend)
+### 2. Set Up Python Dependencies (Core dependencies)
 
 ```bash
 uv sync
 ```
 
 **Dependencies**: see [pyproject.toml](pyproject.toml)
+
+See the [docs](core/docs/) for example usage.
+
+---
+
+### Optional: 
+These are only required for web app.
 
 ### 3. Set Up the Frontend (Web Interface)
 
@@ -46,7 +53,7 @@ cd app
 npm install
 ```
 
-## Quick Start
+## Run Web App
 
 ### 1. Start the API Server
 
@@ -103,7 +110,7 @@ If you use this software, please cite:
   author={McEwen, Ben and Zhang, Shiqi},
   title={{BaseAL}: Active Learning Baseline},
   year=2026,
-  version={v1.1.0},
+  version={v1.1.1},
   publisher={Zenodo},
   doi={10.5281/zenodo.18467564},
   url={https://doi.org/10.5281/zenodo.18467564}
