@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "BaseAL"
-version = "1.1.1"
+version = "1.1.2"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "torch>=2.6",

@@ -121,7 +121,7 @@ class SamplingStrategy:
                labeled_indices: Optional[List[int]] = None,
                labels: Optional[np.ndarray] = None) -> Tuple[List[int], np.ndarray]:
         """
-        Select samples for annotation and compute per-sample uncertainties.
+        Select samples for annotation and compute per-sample utility.
 
         This is the main selection method that stores the input data as instance
         attributes and calls the appropriate sampling method.
@@ -133,13 +133,13 @@ class SamplingStrategy:
             model: Optional reference to the model itself
             annotations: Optional DataFrame containing annotation data and metadata
             labeled_indices: Optional list/array of labeled sample indices
-            labels: Optional ground-truth labels for all samples
+            labels: Optional ground-truth labels for all samples [This seems to be all labels?]
 
         Returns:
-            Tuple of (selected_indices, uncertainties):
+            Tuple of (selected_indices, utility):
                 - selected_indices: List of selected sample indices
-                - uncertainties: Normalized uncertainty scores for unlabeled samples [0, 1]
-                  where 1 = maximum uncertainty, 0 = complete certainty
+                - utility: Normalized utility scores for unlabeled samples [0, 1]
+                  where 1 = maximum utility, 0 = lowest utility
         """
         if len(unlabeled_indices) == 0:
             logger.warning("No unlabeled samples available for selection")
@@ -156,26 +156,26 @@ class SamplingStrategy:
 
         # print(len(self.labels))
 
-        # Call the appropriate sampling method to get uncertainties
+        # Call the appropriate sampling method to get utility scores
         sampling_func = self._method_map[self.method]
-        uncertainties = np.asarray(sampling_func(), dtype=np.float32)
+        utility = np.asarray(sampling_func(), dtype=np.float32)
 
-        if len(uncertainties) != len(unlabeled_indices):
+        if len(utility) != len(unlabeled_indices):
             raise ValueError(
-                f"Sampling method '{self.method}' returned {len(uncertainties)} scores, "
+                f"Sampling method '{self.method}' returned {len(utility)} scores, "
                 f"expected {len(unlabeled_indices)}"
             )
 
-        # Select samples with highest uncertainties
+        # Select samples with highest utility
         n_samples = min(self.n_samples, len(unlabeled_indices))
-        top_indices = np.argsort(uncertainties)[-n_samples:]  # Highest uncertainties
+        top_indices = np.argsort(utility)[-n_samples:]  # Highest uncertainties
 
         selected = np.array(unlabeled_indices)[top_indices].tolist()
 
         logger.info(f"Selected {len(selected)} samples using {self.method} sampling")
-        logger.info(f"utility range: min={uncertainties.min():.4f}, max={uncertainties.max():.4f}, mean={uncertainties.mean():.4f}")
+        logger.info(f"utility range: min={utility.min():.4f}, max={utility.max():.4f}, mean={utility.mean():.4f}")
 
-        return selected, uncertainties
+        return selected, utility
 
     def _random(self) -> np.ndarray:
         """

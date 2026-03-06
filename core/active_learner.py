@@ -452,7 +452,7 @@ class ActiveLearner:
         self.sampling_strategy = SamplingStrategy(method=sampling_strategy, n_samples=n_samples_per_iteration)
         logger.info(f"Initialized '{sampling_strategy}' sampling strategy with n_samples={n_samples_per_iteration}")
 
-        # Active learning state (sets for O(1) membership test and removal)
+        # Active learning state
         self.labeled_indices = set()
         self.unlabeled_indices = set(range(len(self.embeddings)))
         self.training_history = []

@@ -6,7 +6,7 @@
 </h1>
 
 
->BaseAL is a framework for developing and evaluating active learning methods. BaseAL (v1.1.1) currently focuses on audio and bioacoustic data. 
+>BaseAL is a framework for developing and evaluating active learning methods. BaseAL (v1) currently focuses on audio and bioacoustic data. 
 
 The tool provides a complete pipeline for evaluating sampling strategies and 3D visualisation.
 
