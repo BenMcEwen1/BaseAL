@@ -80,11 +80,10 @@ The web interface will be available at `http://localhost:5173`
 ### 3. Explore Embeddings
 
 1. Open `http://localhost:5173` in your browser
-2. Check **"Use Real Embeddings (API)"** to connect to the backend
-3. Select a **model** and **dataset** from the dropdown menus
-4. Click **"Load Embeddings"** to generate and visualize embeddings
-5. Use **Run/Run All** buttons to step through AL cycles
-6. Interact with the 3D scatter plot to explore your data
+2. Click **"Get Started"**.
+3. Select **"Use Config File"** and **"Load Config"**, this will select the default options.
+4. Use **Run Cycle/Run All Cycles** buttons to step through AL cycles
+5. Interact with the 3D scatter plot to explore your data
 
 ## To run BaseAL using an Apptainer container on an HPC system, follow these steps:
 ### 1. Build the Apptainer Image
