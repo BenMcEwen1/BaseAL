@@ -287,6 +287,9 @@ class Manager:
                     'learning_rate': learner.learning_rate,
                     'device': learner.device,
                 },
+                'aulc_mAP':      learner.compute_aulc('mAP'),
+                'aulc_accuracy': learner.compute_aulc('accuracy'),
+                'aulc_f1_score': learner.compute_aulc('f1_score'),
                 'final_state': learner.get_state(),
                 'training_history': learner.training_history
             }
@@ -309,7 +312,10 @@ class Manager:
                     'n_labeled': len(learner.labeled_indices),
                     'n_unlabeled': len(learner.unlabeled_indices),
                     'final_accuracy': learner.training_history[-1]['accuracy'] if learner.training_history else 0.0,
-                    'num_iterations': len(learner.training_history)
+                    'num_iterations': len(learner.training_history),
+                    'aulc_mAP':      learner.compute_aulc('mAP'),
+                    'aulc_accuracy': learner.compute_aulc('accuracy'),
+                    'aulc_f1_score': learner.compute_aulc('f1_score'),
                 }
                 for learner, name in zip(self.experiments, self.experiment_names)
             ]
@@ -340,6 +346,9 @@ class Manager:
                 'n_unlabeled': len(learner.unlabeled_indices),
                 'num_iterations': len(learner.training_history),
                 'current_accuracy': learner.training_history[-1]['accuracy'] if learner.training_history else 0.0,
+                'aulc_mAP':      learner.compute_aulc('mAP'),
+                'aulc_accuracy': learner.compute_aulc('accuracy'),
+                'aulc_f1_score': learner.compute_aulc('f1_score'),
                 'learning_rate': learner.learning_rate,
                 'model_name': learner.model_name
             }
@@ -357,9 +366,9 @@ class ActiveLearner:
         embeddings_dir: Path,
         annotations_path: Path,
         model_name: str = "birdnet",
-        dataset_name: str = "FewShot",
+        dataset_name: str = "ESC10",
         hidden_dim: Optional[int] = None,
-        learning_rate: float = 0.0001,
+        learning_rate: float = 0.001,
         repeats: int = 1,
         device: str = "cpu",
         sampling_strategy: str = "random",
@@ -396,6 +405,7 @@ class ActiveLearner:
         self.learning_rate = learning_rate
         self.device = device
         self.repeats = repeats
+        self.pretrain_samples = pretrain_samples or 0
 
         # Audio directory for media retrieval (new format: {dataset}/data/{model_name}/)
         self.audio_dir = Path(annotations_path).parent / "data" / model_name
@@ -456,6 +466,10 @@ class ActiveLearner:
         self.labeled_indices = set()
         self.unlabeled_indices = set(range(len(self.embeddings)))
         self.training_history = []
+
+        # Pending per-cycle supplementary metrics (populated by sample() / add_samples())
+        self._pending_sampling_time: float = 0.0
+        self._pending_annotation_cost: int = 0
 
         # Pre-training warm-up: select high-density samples if specified
         if pretrain_samples is not None and pretrain_samples > 0:
@@ -709,6 +723,7 @@ class ActiveLearner:
 
         # Call the sampling strategy with all available data
         # Now returns both selected indices and uncertainties
+        _t0 = time.perf_counter()
         selected, unlabeled_uncertainties = self.sampling_strategy.select(
             unlabeled_indices=unlabeled_list,
             predictions=predictions,
@@ -718,6 +733,7 @@ class ActiveLearner:
             labeled_indices=labeled_list,
             labels=self.labels,
         )
+        self._pending_sampling_time += time.perf_counter() - _t0
 
         # Debug: Check uncertainty values from sampling strategy
         logger.info(f"Unlabeled uncertainties - min: {unlabeled_uncertainties.min():.4f}, max: {unlabeled_uncertainties.max():.4f}, mean: {unlabeled_uncertainties.mean():.4f}")
@@ -750,6 +766,14 @@ class ActiveLearner:
         moved = self.unlabeled_indices.intersection(indices)
         self.unlabeled_indices -= moved
         self.labeled_indices |= moved
+
+        # Annotation cost = Σ events per selected sample.
+        # For multilabel: events(i) = number of positive labels.
+        # For single-label: every sample has exactly 1 event.
+        if self.is_multilabel:
+            self._pending_annotation_cost += int(self.labels[list(moved)].sum())
+        else:
+            self._pending_annotation_cost += len(moved)
 
         logger.info(f"Added {len(indices)} samples. Labeled: {len(self.labeled_indices)}, Unlabeled: {len(self.unlabeled_indices)}")
 
@@ -1002,17 +1026,159 @@ class ActiveLearner:
             "n_labeled": len(self.labeled_indices),
             "n_unlabeled": len(self.unlabeled_indices),
             "repeats": self.repeats,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "sampling_time_s": round(self._pending_sampling_time, 6),
+            "annotation_cost": self._pending_annotation_cost,
             "calibration": calibration_data  # Add calibration data from last repeat
         }
 
+        # Reset pending supplementary metrics for next cycle
+        self._pending_sampling_time = 0.0
+        self._pending_annotation_cost = 0
+
         self.training_history.append(metrics)
+
+        # Compute running AULC for all three performance metrics
+        aulc_mAP      = self.compute_aulc('mAP')
+        aulc_accuracy = self.compute_aulc('accuracy')
+        aulc_f1       = self.compute_aulc('f1_score')
+        metrics['aulc_mAP']      = aulc_mAP
+        metrics['aulc_accuracy'] = aulc_accuracy
+        metrics['aulc_f1_score'] = aulc_f1
+        self.training_history[-1].update({
+            'aulc_mAP':      aulc_mAP,
+            'aulc_accuracy': aulc_accuracy,
+            'aulc_f1_score': aulc_f1,
+        })
+
         logger.info(f"Training step complete: Loss={metrics['loss']:.4f}±{metrics['loss_sd']:.4f}, "
                    f"Acc={metrics['accuracy']:.4f}±{metrics['accuracy_sd']:.4f}, "
                    f"F1={metrics['f1_score']:.4f}±{metrics['f1_score_sd']:.4f}, "
-                   f"mAP={metrics['mAP']:.4f}±{metrics['mAP_sd']:.4f}")
+                   f"mAP={metrics['mAP']:.4f}±{metrics['mAP_sd']:.4f}, "
+                   f"AULC(mAP)={aulc_mAP:.4f}")
 
         return metrics
-    
+
+    def compute_aulc(self, metric: str = 'mAP') -> float:
+        """
+        Compute the Area Under the Learning Curve (AULC) from the current training
+        history using the trapezoidal rule, normalised by the x-axis range so the
+        result is in [0, 1].
+
+        Args:
+            metric: Which metric to use as the y-axis. One of 'mAP', 'accuracy',
+                    or 'f1_score'. Defaults to 'mAP'.
+
+        Returns:
+            Normalised AULC in [0, 1], or 0.0 if fewer than 2 training steps have
+            been recorded or all steps have the same n_labeled value.
+        """
+        if len(self.training_history) < 2:
+            return 0.0
+        n_labeled = [entry['n_labeled'] for entry in self.training_history]
+        values    = [entry[metric]      for entry in self.training_history]
+        x_range   = n_labeled[-1] - n_labeled[0]
+        if x_range == 0:
+            return 0.0
+        return float(np.trapz(values, n_labeled) / x_range)
+
+    def export(self, output_path: str,
+               author_lastname: Optional[str] = None,
+               institute_abbreviation: Optional[str] = None,
+               max_budget: Optional[int] = None) -> None:
+        """
+        Export the submission YAML file for the BioDCASE challenge.
+
+        The file contains:
+        - Configuration (hyperparameters, model size)
+        - Learning curve: per-cycle performance metrics and AULC
+        - Supplementary metrics: sampling wall-time, annotation cost,
+          computational cost (training)
+
+        Internal bookkeeping fields (calibration, SD values, n_unlabeled,
+        repeats) are excluded from the output.
+
+        Args:
+            output_path: Destination path for the YAML file.
+                         Recommended naming: {method}_{dataset}_{lastname}.yaml
+            author_lastname: Participant's last name (included in the YAML header).
+            institute_abbreviation: Short institute identifier (included in the YAML header).
+            max_budget: Total labelling budget used in the run (including warm-up).
+                        Used to derive the baseline n_cycles as
+                        max_budget // BASELINE_BATCH_SIZE (32), giving a fair
+                        cost comparison. Falls back to actual n_cycles if None.
+        """
+        _STRIP = {'calibration', 'loss', 'loss_sd', 'n_unlabeled', 'repeats'}
+
+        model_parameters = int(sum(p.numel() for p in self.model.parameters()))
+
+        # Build per-cycle learning curve (stripped)
+        learning_curve = []
+        for i, entry in enumerate(self.training_history):
+            row = {'cycle': i + 1}
+            for k, v in entry.items():
+                if k not in _STRIP:
+                    row[k] = round(v, 6) if isinstance(v, float) else v
+            learning_curve.append(row)
+
+        # Supplementary aggregates
+        total_sampling_time  = round(sum(e.get('sampling_time_s', 0.0) for e in self.training_history), 6)
+        total_annotation_cost = int(sum(e.get('annotation_cost', 0) for e in self.training_history))
+        n_cycles = len(self.training_history)
+        # Use epochs from the last cycle (consistent across cycles for the baseline)
+        last = self.training_history[-1] if self.training_history else {}
+        epochs_per_cycle = last.get('epochs', None)
+
+        # Baseline config (fixed): batch_size=32, epochs=10, same model_parameters.
+        # n_cycles for baseline = max_budget // 32 (if budget provided) else actual n_cycles.
+        _BASELINE_EPOCHS     = 10
+        _BASELINE_BATCH_SIZE = 32
+        baseline_n_cycles = (max_budget // _BASELINE_BATCH_SIZE
+                             if max_budget is not None else n_cycles)
+        cost_method   = (model_parameters * epochs_per_cycle * n_cycles
+                         if epochs_per_cycle is not None else None)
+        baseline_cost = model_parameters * _BASELINE_EPOCHS * baseline_n_cycles
+        relative_cost = (round(cost_method / baseline_cost, 4)
+                         if (cost_method is not None and baseline_cost > 0) else None)
+
+        submission = {
+            'submission_timestamp': datetime.now().isoformat(timespec='seconds'),
+            'author_lastname': author_lastname,
+            'institute_abbreviation': institute_abbreviation,
+            'sampling_strategy': self.sampling_strategy.method
+                if hasattr(self.sampling_strategy, 'method') else str(self.sampling_strategy),
+            'dataset': self.dataset_name,
+            'model': self.model_name,
+            'config': {
+                'learning_rate': self.learning_rate,
+                'model_parameters': model_parameters,
+                'repeats': self.repeats,
+                'pretrain_samples': self.pretrain_samples,
+            },
+            'learning_curve': learning_curve,
+            'supplementary': {
+                'n_cycles': n_cycles,
+                'total_sampling_time_s': total_sampling_time,
+                'total_annotation_cost': total_annotation_cost,
+                'computational_cost': {
+                    'model_parameters': model_parameters,
+                    'epochs_per_cycle': epochs_per_cycle,
+                    'n_cycles': n_cycles,
+                    'cost_method': cost_method,
+                    'baseline_n_cycles': baseline_n_cycles,
+                    'baseline_cost': baseline_cost,
+                    'relative_cost': relative_cost,
+                },
+            },
+        }
+
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, 'w') as f:
+            yaml.dump(submission, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+        logger.info(f"Submission exported to {output_path}")
+
     def _transform_batched(self, embeddings_scaled: np.ndarray) -> np.ndarray:
         """
         Transform embeddings in batches to improve performance for large datasets.

@@ -51,7 +51,7 @@ const teamMembers = [
     id: 6,
     name: 'John Martinsson',
     affiliation: 'RISE Research Institute of Sweden',
-    description: '',
+    description: 'John Martinsson is a PhD student at RISE and Lund University specializing in machine listening for bioacoustics and biodiversity monitoring. His research focuses on developing active learning and few-shot learning methods to improve the efficiency and precision of annotating complex acoustic data. He is a core member of Climate AI Nordics and works to advance automated species detection and habitat sensing through robust machine learning models.',
     googleScholar: 'https://scholar.google.com/citations?hl=en&user=sAMIwlMAAAAJ&view_op=list_works&sortby=pubdate',
     website: 'https://johnmartinsson.org/',
     img: '/profiles/john_martinsson.jpg'

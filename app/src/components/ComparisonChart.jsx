@@ -228,7 +228,7 @@ export default function ComparisonChart({ experimentsData, selectedMetric, onMet
             gap: '15px',
             // minWidth: '500px'
         }}>
-            {/* Dropdown Menu */}
+            {/* Dropdown Menu + AULC per experiment */}
             <div style={{
                 background: 'rgba(255, 255, 255, 0.05)',
                 padding: '16px',
@@ -265,6 +265,60 @@ export default function ComparisonChart({ experimentsData, selectedMetric, onMet
                     <option value="f1_score">F1 Score</option>
                     <option value="mAP">mAP</option>
                 </select>
+
+                {/* AULC per experiment */}
+                <div style={{
+                    marginTop: '8px',
+                    borderTop: '1px solid rgba(255,255,255,0.1)',
+                    paddingTop: '10px'
+                }}>
+                    <div style={{
+                        color: 'rgba(255,255,255,0.6)',
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        marginBottom: '6px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                    }}>
+                        AULC ({metricInfo.label})
+                    </div>
+                    {experimentsData.map((exp, idx) => {
+                        const history = exp.training_history || [];
+                        const aulcKey = selectedMetric === 'mAP' ? 'aulc_mAP'
+                                      : selectedMetric === 'f1_score' ? 'aulc_f1_score'
+                                      : 'aulc_accuracy';
+                        const aulc = history.length > 0 ? (history[history.length - 1][aulcKey] ?? 0) : 0;
+                        const color = colors[idx % colors.length];
+                        return (
+                            <div key={exp.name} style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '4px',
+                                gap: '6px'
+                            }}>
+                                <span style={{
+                                    color: color,
+                                    fontSize: '10px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: '80px'
+                                }}>
+                                    {exp.name}
+                                </span>
+                                <span style={{
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    fontFamily: 'monospace',
+                                    flexShrink: 0
+                                }}>
+                                    {aulc > 0 ? aulc.toFixed(3) : '—'}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Chart Container */}

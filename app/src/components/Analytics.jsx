@@ -58,6 +58,12 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
     const f1ScoresSD = [0, ...trainingHistory.map(entry => entry.f1_score_sd || 0)];
     const mAPsSD = [0, ...trainingHistory.map(entry => entry.mAP_sd || 0)];
 
+    // Running AULC for the selected metric from the latest training history entry
+    const aulcKey = selectedMetric === 'mAP' ? 'aulc_mAP'
+                  : selectedMetric === 'f1_score' ? 'aulc_f1_score'
+                  : 'aulc_accuracy';
+    const currentAULC = trainingHistory[trainingHistory.length - 1]?.[aulcKey] ?? 0;
+
     // Helper function to create upper/lower bounds for shaded regions
     const createBounds = (data, sd) => {
         return {
@@ -321,7 +327,7 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
                 // gap: '15px',
                 alignItems: 'stretch'
             }}>
-                
+
 
                 {/* Chart */}
                 {/* <div style={{
@@ -345,7 +351,34 @@ export default function Analytics({ data: trainingHistory, selectedMetric = 'acc
                 <Line options={lossOptions} data={lossChartData} />
             </div>
 
-            
+            {/* AULC Badge */}
+            <div style={{
+                marginTop: '10px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+            }}>
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>
+                    AULC ({metricInfo.label})
+                </span>
+                <span style={{
+                    color: 'rgb(255, 205, 86)',
+                    fontSize: '13px',
+                    fontWeight: 'bold',
+                    fontFamily: 'monospace'
+                }}>
+                    {currentAULC > 0 ? currentAULC.toFixed(4) : '—'}
+                </span>
+                {currentAULC === 0 && (
+                    <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px' }}>
+                        (requires ≥2 AL cycles)
+                    </span>
+                )}
+            </div>
         </div>
     );
 }
