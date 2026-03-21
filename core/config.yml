@@ -1,22 +1,10 @@
 # Configuration file for Active Learning experiments
 
 experiments:
-  # New Data format
-  # - name: Random
-  #   embeddings_dir: ATBFL_BASEAL_Data/embeddings/perch_v2/
-  #   annotations_path: ATBFL_BASEAL_Data/labels.csv
-  #   model_name: perch_v2
-  #   hidden_dim: null
-  #   sampling_strategy: random
-  #   learning_rate: 0.001
-  #   repeats: 2
-  #   device: cpu
-  #   pretrain_samples: null
-
   - name: Random
-    embeddings_dir: ATBFL_BASEAL_Data/embeddings/perch_v2/
-    annotations_path: ATBFL_BASEAL_Data/labels.csv
-    model_name: perch_v2
+    embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
+    annotations_path: ESC10_BASEAL/labels.csv
+    model_name: birdnet
     hidden_dim: null
     sampling_strategy: random
     learning_rate: 0.001
@@ -25,9 +13,9 @@ experiments:
     pretrain_samples: null
 
   - name: Margin
-    embeddings_dir: ATBFL_BASEAL_Data/embeddings/perch_v2/
-    annotations_path: ATBFL_BASEAL_Data/labels.csv
-    model_name: perch_v2
+    embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
+    annotations_path: ESC10_BASEAL/labels.csv
+    model_name: birdnet
     hidden_dim: null
     sampling_strategy: sklearn_margin_multilabel
     learning_rate: 0.001
@@ -35,24 +23,24 @@ experiments:
     device: cpu
     pretrain_samples: null
 
-  - name: CoreSet
-    embeddings_dir: ATBFL_BASEAL_Data/embeddings/perch_v2/
-    annotations_path: ATBFL_BASEAL_Data/labels.csv
-    model_name: perch_v2
-    hidden_dim: null
-    sampling_strategy: sklearn_coreset
-    learning_rate: 0.001
-    repeats: 1
-    device: cpu
-    pretrain_samples: null
+  # - name: CoreSet
+  #   embeddings_dir: ATBFL_BASEAL_Data/embeddings/perch_v2/
+  #   annotations_path: ATBFL_BASEAL_Data/labels.csv
+  #   model_name: perch_v2
+  #   hidden_dim: null
+  #   sampling_strategy: sklearn_coreset
+  #   learning_rate: 0.001
+  #   repeats: 1
+  #   device: cpu
+  #   pretrain_samples: null
 
-  - name: TypiCluster
-    embeddings_dir: ATBFL_BASEAL_Data/embeddings/perch_v2/
-    annotations_path: ATBFL_BASEAL_Data/labels.csv
-    model_name: perch_v2
-    hidden_dim: null
-    sampling_strategy: sklearn_typiclust
-    learning_rate: 0.001
-    repeats: 1
-    device: cpu
-    pretrain_samples: null
+  # - name: TypiCluster
+  #   embeddings_dir: ATBFL_BASEAL_Data/embeddings/perch_v2/
+  #   annotations_path: ATBFL_BASEAL_Data/labels.csv
+  #   model_name: perch_v2
+  #   hidden_dim: null
+  #   sampling_strategy: sklearn_typiclust
+  #   learning_rate: 0.001
+  #   repeats: 1
+  #   device: cpu
+  #   pretrain_samples: null

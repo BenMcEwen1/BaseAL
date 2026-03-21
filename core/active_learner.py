@@ -429,7 +429,12 @@ class ActiveLearner:
         # print("ACTIVE LEARNER INIT CALLED", file=sys.stderr)
         # print("="*50, file=sys.stderr)
         # sys.stderr.flush()
-        self.embeddings, self.labels, self.label_to_idx, self.idx_to_label, self.annotations_df = self._load_data()
+        self.embeddings, self.labels, self.label_to_idx, self.idx_to_label, self.annotations_df, _val_mask = self._load_data()
+
+        # Build validation index set (these are never sampled or trained on)
+        self.validation_indices: set = set(np.where(_val_mask.values)[0].tolist())
+        if self.validation_indices:
+            logger.info(f"Holding out {len(self.validation_indices)} validation samples from the AL pool")
 
         # Detect if dataset is multilabel based on label shape
         # Single-label: (n_samples,) with dtype int64
@@ -462,9 +467,9 @@ class ActiveLearner:
         self.sampling_strategy = SamplingStrategy(method=sampling_strategy, n_samples=n_samples_per_iteration)
         logger.info(f"Initialized '{sampling_strategy}' sampling strategy with n_samples={n_samples_per_iteration}")
 
-        # Active learning state
+        # Active learning state (validation indices are excluded from both pools)
         self.labeled_indices = set()
-        self.unlabeled_indices = set(range(len(self.embeddings)))
+        self.unlabeled_indices = set(range(len(self.embeddings))) - self.validation_indices
         self.training_history = []
 
         # Pending per-cycle supplementary metrics (populated by sample() / add_samples())
@@ -629,9 +634,20 @@ class ActiveLearner:
             logger.info(f"Labels shape: {labels.shape} (single-label indices)")
 
         annotations_df = df_matched
+
+        # --- Build validation mask --------------------------------------------
+        if 'validation' in annotations_df.columns:
+            validation_mask = annotations_df['validation'].astype(str).str.lower().isin(['true', '1', 'yes'])
+            n_val = validation_mask.sum()
+            logger.info(f"Validation column detected: {n_val} validation samples, "
+                        f"{len(annotations_df) - n_val} training/unlabeled samples")
+        else:
+            validation_mask = pd.Series(False, index=annotations_df.index)
+            logger.info("No validation column found — all samples treated as unlabeled")
+
         logger.info(f"Annotations DataFrame shape: {annotations_df.shape}")
 
-        return embeddings, labels, label_to_idx, idx_to_label, annotations_df
+        return embeddings, labels, label_to_idx, idx_to_label, annotations_df, validation_mask
 
     def _pretrain_warmup(self, n_samples: int):
         """
@@ -645,31 +661,32 @@ class ActiveLearner:
         """
         from .utils.sampling import densityEstimation
 
-        # Ensure we don't request more samples than available
-        n_samples = min(n_samples, len(self.embeddings))
+        # Candidate pool: all non-validation samples
+        candidate_indices = np.array(sorted(set(range(len(self.embeddings))) - self.validation_indices))
+        n_samples = min(n_samples, len(candidate_indices))
 
-        logger.info(f"Computing density estimation for {len(self.embeddings)} samples...")
+        logger.info(f"Computing density estimation for {len(candidate_indices)} candidate samples...")
 
         # Compute density using KNN method (samples with more neighbors = higher density)
         # Using k=20 as a reasonable default for neighbor count
         density_scores = densityEstimation(
-            embeddings=self.embeddings,
+            embeddings=self.embeddings[candidate_indices],
             method='knn',
-            k=min(20, len(self.embeddings) - 1),  # Ensure k < n_samples
+            k=min(20, len(candidate_indices) - 1),  # Ensure k < n_samples
             beta=1
         )
 
         logger.info(f"Density scores - min: {density_scores.min():.4f}, max: {density_scores.max():.4f}, mean: {density_scores.mean():.4f}")
 
-        # Select samples with highest density
-        # Higher density = more neighbors = more representative samples
-        top_density_indices = np.argsort(density_scores)[-n_samples:]
+        # Select samples with highest density and map back to global indices
+        top_local = np.argsort(density_scores)[-n_samples:]
+        top_density_indices = candidate_indices[top_local]
 
         # Add these samples to labeled set
         self.labeled_indices = set(top_density_indices.tolist())
 
-        # Remove from unlabeled set
-        self.unlabeled_indices = set(range(len(self.embeddings))) - self.labeled_indices
+        # Remove from unlabeled set (validation indices already excluded)
+        self.unlabeled_indices = set(candidate_indices.tolist()) - self.labeled_indices
 
         logger.info(f"Pre-training warm-up complete: selected {len(self.labeled_indices)} high-density samples")
         logger.info(f"Remaining unlabeled samples: {len(self.unlabeled_indices)}")
@@ -923,21 +940,29 @@ class ActiveLearner:
 
                 total_loss = epoch_loss / train_length
 
-            # Evaluation on all data (batched to avoid OOM on large datasets)
+            # Evaluation — use validation set if available, else all samples
             probabilities = self._predict_all()
             num_classes = len(self.label_to_idx)
 
+            if self.validation_indices:
+                eval_indices = sorted(self.validation_indices)
+                logger.info(f"Evaluating on {len(eval_indices)} validation samples")
+            else:
+                eval_indices = list(range(len(self.embeddings)))
+
+            eval_probs = probabilities[eval_indices]
+            eval_labels = self.labels[eval_indices]
+
             if self.is_multilabel:
                 # Use threshold of 0.5 for predictions
-                predicted_np = (probabilities > 0.5).astype(int)
-                labels_np = self.labels  # Already in binary vector format
+                predicted_np = (eval_probs > 0.5).astype(int)
+                labels_np = eval_labels  # Already in binary vector format
 
                 # Calculate accuracy (exact match ratio - all labels must match)
                 exact_match = np.all(predicted_np == labels_np, axis=1)
                 accuracy = exact_match.mean()
 
                 # Calculate F1 score (samples average for multilabel)
-                # This calculates F1 for each sample and averages
                 f1 = f1_score(labels_np, predicted_np, average='samples', zero_division=0)
 
                 # Calculate mAP (mean Average Precision) for multilabel
@@ -947,7 +972,7 @@ class ActiveLearner:
                         if labels_np[:, class_idx].sum() > 0:  # Only if class has samples
                             ap = average_precision_score(
                                 labels_np[:, class_idx],
-                                probabilities[:, class_idx]
+                                eval_probs[:, class_idx]
                             )
                             aps.append(ap)
                     mAP = np.mean(aps) if len(aps) > 0 else 0.0
@@ -956,18 +981,16 @@ class ActiveLearner:
                     logger.warning("mAP calculation failed, using 0.0")
 
                 # For calibration in multilabel, use the maximum probability
-                max_probs = np.max(probabilities, axis=1)
-                # Create pseudo single-label for calibration visualization
                 pseudo_predicted = np.argmax(predicted_np, axis=1)
                 pseudo_labels = np.argmax(labels_np, axis=1)
                 calibration_data = self._calculate_calibration_metrics(
-                    probabilities, pseudo_predicted, pseudo_labels
+                    eval_probs, pseudo_predicted, pseudo_labels
                 )
 
             else:
                 # Single-label: probabilities already from _predict_all()
-                predicted_np = np.argmax(probabilities, axis=1)
-                labels_np = self.labels
+                predicted_np = np.argmax(eval_probs, axis=1)
+                labels_np = eval_labels
 
                 # Calculate accuracy
                 correct = (predicted_np == labels_np).sum()
@@ -992,19 +1015,18 @@ class ActiveLearner:
                         if labels_onehot[:, class_idx].sum() > 0:  # Only if class has samples
                             ap = average_precision_score(
                                 labels_onehot[:, class_idx],
-                                probabilities[:, class_idx]
+                                eval_probs[:, class_idx]
                             )
                             aps.append(ap)
 
                     mAP = np.mean(aps) if len(aps) > 0 else 0.0
                 except:
-                    # Fallback if mAP calculation fails
                     mAP = 0.0
                     logger.warning("mAP calculation failed, using 0.0")
 
                 # Calculate calibration metrics
                 calibration_data = self._calculate_calibration_metrics(
-                    probabilities, predicted_np, labels_np
+                    eval_probs, predicted_np, labels_np
                 )
 
             # Store metrics for this repeat
