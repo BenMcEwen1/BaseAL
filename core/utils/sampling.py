@@ -83,6 +83,9 @@ class SamplingStrategy:
             'margin_multilabel',
             'coreset_farthest',
             'nn_disagreement',
+            'sklearn_margin_multilabel',
+            'sklearn_coreset',
+            'sklearn_typiclust',
         ]
 
         if method not in available_methods:
@@ -99,6 +102,9 @@ class SamplingStrategy:
             'margin_multilabel': self._margin_multilabel,
             'coreset_farthest': self._coreset_farthest,
             'nn_disagreement': self._nn_disagreement,
+            'sklearn_margin_multilabel': self._sklearn_margin_multilabel,
+            'sklearn_coreset': self._sklearn_coreset,
+            'sklearn_typiclust': self._sklearn_typiclust,
         }
 
         # Data attributes (see selct)
@@ -439,4 +445,154 @@ class SamplingStrategy:
         for rank, global_idx in enumerate(selected_indices):
             utility[unlabeled_pos[int(global_idx)]] = 1.0 - rank * 1e-6
 
+        return utility.astype(np.float32)
+
+    def _sklearn_margin_multilabel(self) -> np.ndarray:
+        """
+        Margin sampling with mean aggregation for multilabel classification.
+
+        For each sample, computes the mean distance of each label probability from
+        the decision boundary (|p - 0.5|) and averages across labels. Samples
+        closest to the boundary (lowest mean margin) are most uncertain.
+
+        This is the multilabel analogue of:
+            skactiveml.pool.UncertaintySampling(method='margin_sampling')
+        which cannot be used directly here because it requires a classifier object
+        to call predict_proba — unnecessary when predictions are already available.
+
+        scikit-activeml reference:
+            https://scikit-activeml.github.io/latest/generated/skactiveml.pool.UncertaintySampling.html
+
+        Returns:
+            utility: Normalized scores [0, 1] where 1 = on the decision boundary
+        """
+        if self.predictions is None:
+            raise ValueError("sklearn_margin_multilabel requires predictions")
+
+        unlabeled_preds = self.predictions[self.unlabeled_indices]
+
+        # Per-label distance from the decision boundary: |p - 0.5| in [0, 0.5]
+        # Mean across labels: small value => high uncertainty
+        mean_margin = np.mean(np.abs(unlabeled_preds - 0.5), axis=1)
+
+        # Normalize to [0, 1]: 0.5 is the max possible mean_margin
+        utility = (1.0 - (mean_margin / 0.5)).astype(np.float32)
+
+        logger.info(f"sklearn_margin_multilabel - mean_margin min: {mean_margin.min():.4f}, max: {mean_margin.max():.4f}")
+        return utility
+
+    def _sklearn_coreset(self) -> np.ndarray:
+        """
+        Greedy k-center (CoreSet) sampling using scikit-activeml.
+
+        Selects a diverse set of samples by minimising the maximum distance from
+        any unlabeled point to its nearest selected (or already-labeled) point.
+
+        scikit-activeml reference:
+            skactiveml.pool.CoreSet
+            https://scikit-activeml.github.io/latest/generated/skactiveml.pool.CoreSet.html
+
+        Returns:
+            utility: Normalized min-distance-to-labeled scores [0, 1]
+                     where 1 = farthest from any labeled point
+        """
+        from skactiveml.pool import CoreSet
+        from skactiveml.utils import MISSING_LABEL
+
+        if self.embeddings is None:
+            raise ValueError("sklearn_coreset requires embeddings")
+
+        n_total = self.embeddings.shape[0]
+        n_samples = min(self.n_samples, len(self.unlabeled_indices))
+
+        # Cold-start fallback: no labeled samples means no anchor for distance computation.
+        if len(self.labeled_indices) == 0:
+            logger.warning("sklearn_coreset: no labeled samples, falling back to random")
+            return self._random()
+
+        # Build y: labeled samples get a dummy label (0), unlabeled get MISSING_LABEL.
+        # CoreSet only uses y to distinguish labeled from unlabeled — label values are ignored.
+        y = np.zeros(n_total, dtype=float)
+        y[self.unlabeled_indices] = MISSING_LABEL
+
+        strategy = CoreSet(missing_label=MISSING_LABEL)
+
+        selected_indices, utilities = strategy.query(
+            X=self.embeddings,
+            y=y,
+            candidates=np.array(self.unlabeled_indices),
+            batch_size=n_samples,
+            return_utilities=True,
+        )
+
+        # utilities[0] = initial min-distance-to-labeled for every candidate — use for
+        # visualisation / relative ranking of non-selected samples.
+        util_scores = utilities[0][self.unlabeled_indices]
+        utility = self._normalize(np.clip(util_scores, 0, None)) * 0.99
+
+        # Override utility to 1.0 for the samples scikit-activeml actually chose via its
+        # greedy k-center algorithm. This ensures select() reproduces the greedy selection
+        # rather than a naive top-K on the initial distances (which clusters picks together).
+        unlabeled_pos = {idx: pos for pos, idx in enumerate(self.unlabeled_indices)}
+        for idx in selected_indices:
+            if idx in unlabeled_pos:
+                utility[unlabeled_pos[idx]] = 1.0
+
+        logger.info(f"sklearn_coreset - selected {len(selected_indices)} samples via greedy k-center")
+        return utility.astype(np.float32)
+
+    def _sklearn_typiclust(self) -> np.ndarray:
+        """
+        TypiClust sampling using scikit-activeml.
+
+        Clusters the embedding space (KMeans) then, for each cluster without a
+        labeled sample, selects the most typical (highest-density) unlabeled point.
+        Promotes coverage and typicality rather than outlier selection.
+
+        scikit-activeml reference:
+            skactiveml.pool.TypiClust
+            https://scikit-activeml.github.io/latest/generated/skactiveml.pool.TypiClust.html
+
+        Returns:
+            utility: Normalized typicality scores [0, 1]
+                     where 1 = most typical in its cluster
+        """
+        from skactiveml.pool import TypiClust
+        from skactiveml.utils import MISSING_LABEL
+
+        if self.embeddings is None:
+            raise ValueError("sklearn_typiclust requires embeddings")
+
+        n_total = self.embeddings.shape[0]
+        n_samples = min(self.n_samples, len(self.unlabeled_indices))
+
+        # Build y: labeled samples get a dummy label (0), unlabeled get MISSING_LABEL.
+        y = np.zeros(n_total, dtype=float)
+        y[self.unlabeled_indices] = MISSING_LABEL
+
+        strategy = TypiClust(missing_label=MISSING_LABEL)
+
+        selected_indices, utilities = strategy.query(
+            X=self.embeddings,
+            y=y,
+            candidates=np.array(self.unlabeled_indices),
+            batch_size=n_samples,
+            return_utilities=True,
+        )
+
+        # utilities[0] = typicality scores; -inf means the cluster is already covered by a
+        # labeled sample so the point should not be selected — map to 0 for display.
+        util_scores = utilities[0][self.unlabeled_indices]
+        util_scores = np.where(np.isfinite(util_scores), util_scores, 0.0)
+        utility = self._normalize(util_scores) * 0.99
+
+        # Override utility to 1.0 for the samples TypiClust actually chose (one per
+        # uncovered cluster). This ensures select() reproduces TypiClust's coverage-aware
+        # selection rather than a naive top-K that may pick multiple from the same cluster.
+        unlabeled_pos = {idx: pos for pos, idx in enumerate(self.unlabeled_indices)}
+        for idx in selected_indices:
+            if idx in unlabeled_pos:
+                utility[unlabeled_pos[idx]] = 1.0
+
+        logger.info(f"sklearn_typiclust - typicality min: {util_scores.min():.4f}, max: {util_scores.max():.4f}")
         return utility.astype(np.float32)

@@ -1,8 +1,14 @@
 /data
 ESC50_BASEAL
 ATBFL_BASEAL
+ATBFL_BASEAL_Data
+HSN_BASEAL
+POW_BASEAL
+UHH_BASEAL
 ATBFL_BASEAL.zip
 *.wav
+*.npy
+!ESC10_BASEAL/embeddings/**/*.npy
 .cache
 .venv
 *.egg-info
@@ -12,6 +18,7 @@ nul
 results
 test_data
 planning
+scripts
 
 *.code-workspace
 /.vscode/

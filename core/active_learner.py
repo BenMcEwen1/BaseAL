@@ -534,11 +534,18 @@ class ActiveLearner:
         # --- Build embedding filenames and filter to existing files -----------
         # Construct expected embedding path for every annotation row
         stems = df['filename'].apply(lambda f: Path(f).stem)
-        embedding_names = stems + f"_{self.model_name}.npy"
+        embedding_names = stems + f".npy" # NOTE: _{self.model_name}
 
         # Single directory listing instead of N individual Path.exists() calls
         existing_files = set(p.name for p in self.embeddings_dir.iterdir())
         exists_mask = embedding_names.isin(existing_files)
+
+        # If no exact matches, try suffix matching (embedding files may have a deployment prefix
+        # separated by '__', e.g. "deployment__<stem>_<model>.npy")
+        if not exists_mask.any():
+            suffix_map = {f.split('__', 1)[-1]: f for f in existing_files}
+            exists_mask = embedding_names.isin(suffix_map)
+            embedding_names = embedding_names.map(lambda n: suffix_map.get(n, n))
 
         n_missing = (~exists_mask).sum()
         if n_missing > 0:
@@ -1071,13 +1078,14 @@ class ActiveLearner:
                     or 'f1_score'. Defaults to 'mAP'.
 
         Returns:
-            Normalised AULC in [0, 1], or 0.0 if fewer than 2 training steps have
-            been recorded or all steps have the same n_labeled value.
+            Normalised AULC in [0, 1], or 0.0 if no training steps have been
+            recorded or all steps have the same n_labeled value.
         """
-        if len(self.training_history) < 2:
+        if len(self.training_history) < 1:
             return 0.0
-        n_labeled = [entry['n_labeled'] for entry in self.training_history]
-        values    = [entry[metric]      for entry in self.training_history]
+        # Prepend a (0, 0) anchor so cycle 1 yields a non-zero area.
+        n_labeled = [0] + [entry['n_labeled'] for entry in self.training_history]
+        values    = [0.0] + [entry[metric]    for entry in self.training_history]
         x_range   = n_labeled[-1] - n_labeled[0]
         if x_range == 0:
             return 0.0
