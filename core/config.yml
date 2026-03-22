@@ -17,15 +17,15 @@ experiments:
     annotations_path: ESC10_BASEAL/labels.csv
     model_name: birdnet
     hidden_dim: null
-    sampling_strategy: sklearn_margin_multilabel
+    sampling_strategy: margin_multilabel
     learning_rate: 0.001
     repeats: 1
     device: cpu
     pretrain_samples: null
 
   # - name: CoreSet
-  #   embeddings_dir: ATBFL_BASEAL_Data/embeddings/perch_v2/
-  #   annotations_path: ATBFL_BASEAL_Data/labels.csv
+  #   embeddings_dir: ATBFL_BASEAL/embeddings/perch_v2/
+  #   annotations_path: ATBFL_BASEAL/labels.csv
   #   model_name: perch_v2
   #   hidden_dim: null
   #   sampling_strategy: sklearn_coreset

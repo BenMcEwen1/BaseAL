@@ -37,14 +37,20 @@ cd BaseAL
 uv sync
 ```
 
-**Dependencies**: see [pyproject.toml](pyproject.toml)
+Make sure you activate the env `source .venv/bin/activate` or select via `Ctrl + Shift + P` in VSCode.
 
-See the [docs](core/docs/) for example usage.
+See the **Dependencies** list in [pyproject.toml](pyproject.toml). 
+
+### Get Started
+
+See the [docs](core/docs/) to get started working with the BaseAL framework, and developing active learning sampling strategies.
+
+If you are a participating in the BioDCASE data challenge, an `example.ipynb` is setup [here](core/docs/example.ipynb) with everything needed to get started.
 
 ---
 
 ### Optional: 
-These are only required for web app.
+The following is **optional** and only required for the web app.
 
 ### 3. Set Up the Frontend (Web Interface)
 
@@ -53,7 +59,7 @@ cd app
 npm install
 ```
 
-## Run Web App
+## (Optional) Run Web App
 
 ### 1. Start the API Server
 
@@ -71,7 +77,7 @@ You can verify it's running by visiting `http://localhost:8000/docs` for the int
 Open a new terminal window and run:
 
 ```bash
-cd app
+cd ../app
 npm run dev
 ```
 
@@ -99,7 +105,7 @@ apptainer build --fakeroot baseal.sif apptainer_build/baseal.def
 apptainer shell --bind /any/required/paths:/mnt baseal.sif
 ```
 
-### 3. run the same commands as in the Quick Start section above.
+### 3. run the same commands as in the setup section above.
 
 ## Citation
 

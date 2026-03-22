@@ -80,10 +80,11 @@ class SamplingStrategy:
             'random',
             'margin',
             'custom',
-            'margin_multilabel',
+            'bald',
+            # 'margin_multilabel',
             'coreset_farthest',
             'nn_disagreement',
-            'sklearn_margin_multilabel',
+            'margin_multilabel',
             'sklearn_coreset',
             'sklearn_typiclust',
         ]
@@ -99,10 +100,11 @@ class SamplingStrategy:
             'random': self._random,
             'margin': self._margin,
             'custom': self._custom,
-            'margin_multilabel': self._margin_multilabel,
+            'bald': self._bald,
+            # 'margin_multilabel': self._margin_multilabel,
             'coreset_farthest': self._coreset_farthest,
             'nn_disagreement': self._nn_disagreement,
-            'sklearn_margin_multilabel': self._sklearn_margin_multilabel,
+            'margin_multilabel': self._margin_multilabel,
             'sklearn_coreset': self._sklearn_coreset,
             'sklearn_typiclust': self._sklearn_typiclust,
         }
@@ -125,7 +127,8 @@ class SamplingStrategy:
                model=None,
                annotations: Optional[pd.DataFrame] = None,
                labeled_indices: Optional[List[int]] = None,
-               labels: Optional[np.ndarray] = None) -> Tuple[List[int], np.ndarray]:
+               labels: Optional[np.ndarray] = None,
+               mc_predictions: Optional[np.ndarray] = None) -> Tuple[List[int], np.ndarray]:
         """
         Select samples for annotation and compute per-sample utility.
 
@@ -139,7 +142,8 @@ class SamplingStrategy:
             model: Optional reference to the model itself
             annotations: Optional DataFrame containing annotation data and metadata
             labeled_indices: Optional list/array of labeled sample indices
-            labels: Optional ground-truth labels for all samples [This seems to be all labels?]
+            labels: Optional ground-truth labels for all samples 
+            mc_predictions: Optional repeated forward-pass predictions (mc_passes, N, num_classes)
 
         Returns:
             Tuple of (selected_indices, utility):
@@ -159,6 +163,7 @@ class SamplingStrategy:
         self.annotations = annotations
         self.labeled_indices = labeled_indices if labeled_indices is not None else []
         self.labels = labels
+        self.mc_predictions = mc_predictions
 
         # print(len(self.labels))
 
@@ -232,7 +237,7 @@ class SamplingStrategy:
         INSTRUCTIONS FOR IMPLEMENTING CUSTOM SAMPLING:
         ===============================================
 
-        1. This method should compute utility scores for all unlabeled samples.
+        1. This method computes utility scores for all unlabeled samples.
 
         2. The utility scores should be normalized to [0, 1] where:
            - 1.0 = maximum utility (highest priority for annotation)
@@ -255,6 +260,18 @@ class SamplingStrategy:
         # For now, default to random sampling
         logger.warning("Custom sampling not implemented, falling back to random sampling")
         return self._random()
+    
+    def _bald(self) -> np.ndarray:
+        # self.mc_predictions: (n_passes, n_samples, n_classes)
+
+        if self.mc_predictions is None:
+            raise ValueError("MC predictions unavailable, this method requires multiple mc_dropout_passes to be set")
+
+        mc = self.mc_predictions[:, self.unlabeled_indices, :]  # (n_passes, n_unlabeled, n_classes)
+        mean_p = mc.mean(axis=0)                                # (n_unlabeled, n_classes)
+        H_mean = -np.sum(mean_p * np.log(mean_p + 1e-8), axis=1)          # predictive entropy
+        mean_H = -np.mean(np.sum(mc * np.log(mc + 1e-8), axis=2), axis=0) # expected entropy
+        return H_mean - mean_H                                              # BALD score
 
     @staticmethod
     def _normalize(scores: np.ndarray) -> np.ndarray:
@@ -279,18 +296,18 @@ class SamplingStrategy:
         one_hot[np.arange(labels.shape[0]), idx] = 1.0
         return one_hot
 
-    def _margin_multilabel(self) -> np.ndarray:
-        """
-        Marginal query for multi-label classification:
-        utility = 1 - 2 * min(|p - 0.5|) for each sample.
-        """
-        if self.predictions is None:
-            raise ValueError("margin_multilabel requires predictions")
+    # def _margin_multilabel(self) -> np.ndarray:
+    #     """
+    #     Marginal query for multi-label classification:
+    #     utility = 1 - 2 * min(|p - 0.5|) for each sample.
+    #     """
+    #     if self.predictions is None:
+    #         raise ValueError("margin_multilabel requires predictions")
 
-        unlabeled_probs = self.predictions[self.unlabeled_indices]
-        margins = np.min(np.abs(unlabeled_probs - 0.5), axis=1)
-        utility = np.clip(1.0 - 2.0 * margins, 0.0, 1.0).astype(np.float32)
-        return utility
+    #     unlabeled_probs = self.predictions[self.unlabeled_indices]
+    #     margins = np.min(np.abs(unlabeled_probs - 0.5), axis=1)
+    #     utility = np.clip(1.0 - 2.0 * margins, 0.0, 1.0).astype(np.float32)
+    #     return utility
 
     def _coreset_farthest(self) -> np.ndarray:
         """
@@ -447,7 +464,7 @@ class SamplingStrategy:
 
         return utility.astype(np.float32)
 
-    def _sklearn_margin_multilabel(self) -> np.ndarray:
+    def _margin_multilabel(self) -> np.ndarray:
         """
         Margin sampling with mean aggregation for multilabel classification.
 
@@ -467,7 +484,7 @@ class SamplingStrategy:
             utility: Normalized scores [0, 1] where 1 = on the decision boundary
         """
         if self.predictions is None:
-            raise ValueError("sklearn_margin_multilabel requires predictions")
+            raise ValueError("margin_multilabel requires predictions")
 
         unlabeled_preds = self.predictions[self.unlabeled_indices]
 
@@ -478,7 +495,7 @@ class SamplingStrategy:
         # Normalize to [0, 1]: 0.5 is the max possible mean_margin
         utility = (1.0 - (mean_margin / 0.5)).astype(np.float32)
 
-        logger.info(f"sklearn_margin_multilabel - mean_margin min: {mean_margin.min():.4f}, max: {mean_margin.max():.4f}")
+        logger.info(f"margin_multilabel - mean_margin min: {mean_margin.min():.4f}, max: {mean_margin.max():.4f}")
         return utility
 
     def _sklearn_coreset(self) -> np.ndarray:
@@ -566,6 +583,12 @@ class SamplingStrategy:
         n_total = self.embeddings.shape[0]
         n_samples = min(self.n_samples, len(self.unlabeled_indices))
 
+        # Project to a lower-dimensional space before clustering.
+        # KMeans is slow and noisy in high dimensions; PCA to 64-D gives a large
+        # speed-up with minimal loss of cluster structure (same as _coreset_farthest).
+        pca_dim = 64
+        X = _project_with_pca(self.embeddings.astype(np.float32, copy=False), out_dim=pca_dim)
+
         # Build y: labeled samples get a dummy label (0), unlabeled get MISSING_LABEL.
         y = np.zeros(n_total, dtype=float)
         y[self.unlabeled_indices] = MISSING_LABEL
@@ -573,7 +596,7 @@ class SamplingStrategy:
         strategy = TypiClust(missing_label=MISSING_LABEL)
 
         selected_indices, utilities = strategy.query(
-            X=self.embeddings,
+            X=X,
             y=y,
             candidates=np.array(self.unlabeled_indices),
             batch_size=n_samples,

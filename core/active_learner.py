@@ -374,6 +374,8 @@ class ActiveLearner:
         sampling_strategy: str = "random",
         n_samples_per_iteration: int = 5,
         pretrain_samples: Optional[int] = None,
+        dropout_rate: float = 0.0,
+        mc_dropout_passes: int = 1,
         verbose: bool = True
     ):
         """
@@ -398,14 +400,19 @@ class ActiveLearner:
         if not verbose:
             logger.setLevel(logging.WARNING)
             logging.getLogger("core.utils.sampling").setLevel(logging.WARNING)
+
         self.embeddings_dir = embeddings_dir
         self.annotations_path = annotations_path
         self.model_name = model_name
         self.dataset_name = dataset_name
         self.learning_rate = learning_rate
         self.device = device
-        self.repeats = repeats
+        self.repeats = repeats # TODO: potentially adjust for MC
         self.pretrain_samples = pretrain_samples or 0
+
+        # Model dropout for MC
+        self.dropout_rate = dropout_rate
+        self.mc_dropout_passes = mc_dropout_passes
 
         # Audio directory for media retrieval (new format: {dataset}/data/{model_name}/)
         self.audio_dir = Path(annotations_path).parent / "data" / model_name
@@ -448,7 +455,8 @@ class ActiveLearner:
         self.model = EmbeddingClassifier(
             input_dim=input_dim,
             hidden_dim=hidden_dim,
-            num_classes=num_classes
+            num_classes=num_classes,
+            dropout_rate=dropout_rate
         ).to(self.device)
 
         # Optimizer
@@ -659,7 +667,7 @@ class ActiveLearner:
         Args:
             n_samples: Number of high-density samples to pre-select
         """
-        from .utils.sampling import densityEstimation
+        from .utils.sampling import densityEstimation # TODO: generalise to other warmup methods
 
         # Candidate pool: all non-validation samples
         candidate_indices = np.array(sorted(set(range(len(self.embeddings))) - self.validation_indices))
@@ -699,24 +707,35 @@ class ActiveLearner:
             probabilities: Array of shape (n_samples, num_classes) with class
                            probabilities (softmax for single-label, sigmoid for multilabel).
         """
-        self.model.eval()
         n = len(self.embeddings)
         bs = self.inference_batch_size
-        chunks = []
 
-        with torch.no_grad():
-            for start in range(0, n, bs):
-                batch = torch.from_numpy(self.embeddings[start:start + bs]).to(self.device)
-                out = self.model(batch)
-
-                if self.is_multilabel:
-                    probs = torch.sigmoid(out)
-                else:
-                    probs = torch.softmax(out, dim=1)
-
-                chunks.append(probs.cpu().numpy())
-
-        return np.concatenate(chunks, axis=0)
+        if self.mc_dropout_passes <= 1:
+            self.model.eval()
+            chunks = []
+            with torch.no_grad():
+                for start in range(0, n, bs):
+                    batch = torch.from_numpy(self.embeddings[start:start + bs]).to(self.device)
+                    out = self.model(batch)
+                    probs = torch.sigmoid(out) if self.is_multilabel else torch.softmax(out, dim=1)
+                    chunks.append(probs.cpu().numpy())
+            return np.concatenate(chunks, axis=0)
+        
+        else:
+            # mc_dropout_passes > 1 then compute multiple forward passes
+            all_passes = []
+            self.model.train()
+            with torch.no_grad():
+                for _ in range(self.mc_dropout_passes):
+                    chunks = []
+                    for start in range(0, n, bs):
+                        batch = torch.from_numpy(self.embeddings[start:start + bs]).to(self.device)
+                        out = self.model(batch)
+                        probs = torch.sigmoid(out) if self.is_multilabel else torch.softmax(out, dim=1)
+                        chunks.append(probs.cpu().numpy())
+                    all_passes.append(np.concatenate(chunks, axis=0))
+            self.model.eval()
+            return np.stack(all_passes, axis=0) # shape: (mc_dropout_passes, n_samples, n_classes)
 
     def sample(self, n_samples: Optional[int] = None) -> List[int]:
         """
@@ -741,6 +760,11 @@ class ActiveLearner:
         # Get predictions for all samples (batched to avoid OOM on large datasets)
         predictions = self._predict_all()
 
+        if self.mc_dropout_passes > 1:
+            mean_predictions = predictions.mean(axis=0) # (n_samples, n_classes)
+        else:
+            mean_predictions = predictions
+
         # Convert sets to sorted lists for numpy indexing in sampling strategies
         unlabeled_list = sorted(self.unlabeled_indices)
         labeled_list = sorted(self.labeled_indices)
@@ -750,12 +774,13 @@ class ActiveLearner:
         _t0 = time.perf_counter()
         selected, unlabeled_uncertainties = self.sampling_strategy.select(
             unlabeled_indices=unlabeled_list,
-            predictions=predictions,
+            predictions=mean_predictions, # TODO: if self.mc_dropout_passes > 1 this could break non-mc sampling methods
             embeddings=self.embeddings,
             model=self.model,
             annotations=self.annotations_df,
             labeled_indices=labeled_list,
             labels=self.labels,
+            mc_predictions=predictions if self.mc_dropout_passes > 1 else None
         )
         self._pending_sampling_time += time.perf_counter() - _t0
 
@@ -935,7 +960,6 @@ class ActiveLearner:
                     # Backward pass
                     loss.backward()
                     self.optimizer.step()
-
                     epoch_loss += loss.item()
 
                 total_loss = epoch_loss / train_length
@@ -943,6 +967,9 @@ class ActiveLearner:
             # Evaluation — use validation set if available, else all samples
             probabilities = self._predict_all()
             num_classes = len(self.label_to_idx)
+
+            if self.mc_dropout_passes > 1:
+                probabilities = probabilities.mean(axis=0) # (n_samples, n_classes)
 
             if self.validation_indices:
                 eval_indices = sorted(self.validation_indices)
@@ -963,7 +990,7 @@ class ActiveLearner:
                 accuracy = exact_match.mean()
 
                 # Calculate F1 score (samples average for multilabel)
-                f1 = f1_score(labels_np, predicted_np, average='samples', zero_division=0)
+                f1 = f1_score(labels_np, predicted_np, average='macro', zero_division=0)
 
                 # Calculate mAP (mean Average Precision) for multilabel
                 try:

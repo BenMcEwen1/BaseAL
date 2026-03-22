@@ -16,7 +16,7 @@ class EmbeddingClassifier(nn.Module):
         num_classes: Number of output classes
     """
 
-    def __init__(self, input_dim=1024, hidden_dim=None, num_classes=23):
+    def __init__(self, input_dim=1024, hidden_dim=None, num_classes=23, dropout_rate=0.0):
         super().__init__()
 
         if hidden_dim is None:
@@ -25,6 +25,7 @@ class EmbeddingClassifier(nn.Module):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.num_classes = num_classes
+        self.dropout = nn.Dropout(p=dropout_rate)
 
         # Linear projection layer (generates new embedding)
         self.projection = nn.Linear(input_dim, hidden_dim)
@@ -57,6 +58,7 @@ class EmbeddingClassifier(nn.Module):
         # Project to intermediate embedding space
         embedding = self.projection(x)
         embedding = F.relu(embedding)
+        embedding = self.dropout(embedding)
 
         # Classification
         logits = self.classifier(embedding)
