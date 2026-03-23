@@ -114,7 +114,7 @@ class SamplingStrategy:
         self.predictions = None
         self.embeddings = None
         self.model = None
-        self.annotations = None
+        self.metadata = None
         self.labeled_indices = None
         self.labels = None
 
@@ -125,7 +125,7 @@ class SamplingStrategy:
                predictions: Optional[np.ndarray] = None,
                embeddings: Optional[np.ndarray] = None,
                model=None,
-               annotations: Optional[pd.DataFrame] = None,
+               metadata: Optional[pd.DataFrame] = None,
                labeled_indices: Optional[List[int]] = None,
                labels: Optional[np.ndarray] = None,
                mc_predictions: Optional[np.ndarray] = None) -> Tuple[List[int], np.ndarray]:
@@ -140,7 +140,7 @@ class SamplingStrategy:
             predictions: Optional numpy array of model predictions (N x num_classes)
             embeddings: Optional numpy array of embeddings (N x embedding_dim)
             model: Optional reference to the model itself
-            annotations: Optional DataFrame containing annotation data and metadata
+            metadata: Optional DataFrame containing metadata
             labeled_indices: Optional list/array of labeled sample indices
             labels: Optional ground-truth labels for all samples 
             mc_predictions: Optional repeated forward-pass predictions (mc_passes, N, num_classes)
@@ -160,12 +160,10 @@ class SamplingStrategy:
         self.predictions = predictions
         self.embeddings = embeddings
         self.model = model
-        self.annotations = annotations
+        self.metadata = metadata
         self.labeled_indices = labeled_indices if labeled_indices is not None else []
         self.labels = labels
         self.mc_predictions = mc_predictions
-
-        # print(len(self.labels))
 
         # Call the appropriate sampling method to get utility scores
         sampling_func = self._method_map[self.method]
@@ -250,7 +248,7 @@ class SamplingStrategy:
            - self.embeddings: Full embeddings array of shape (n_total_samples, embedding_dim)
                              The raw feature vectors before classification
            - self.model: Reference to the trained model (if you need to extract features/gradients)
-           - self.annotations: DataFrame containing annotation data and metadata
+           - self.metadata: DataFrame containing annotation data and metadata
                               Can contain custom metadata fields for advanced sampling strategies
 
         Returns:
@@ -400,7 +398,7 @@ class SamplingStrategy:
         if self.embeddings is None or self.predictions is None:
             raise ValueError("nn_disagreement requires embeddings and predictions")
         if self.labels is None:
-            raise ValueError("nn_disagreement requires labels")
+            return self._random()
 
         unlabeled = np.asarray(self.unlabeled_indices, dtype=int)
         k = min(self.n_samples, len(unlabeled))
@@ -432,8 +430,13 @@ class SamplingStrategy:
             model_probs = model_probs[:, None]
         num_classes = model_probs.shape[1]
 
+        # self.labels is a dense array aligned with self.labeled_indices (same sorted order).
+        # Use searchsorted to map the (possibly subsampled) global indices in `labeled` back
+        # to their positions in the dense labels array.
+        labeled_indices_sorted = np.asarray(self.labeled_indices, dtype=int)
+        labeled_positions = np.searchsorted(labeled_indices_sorted, labeled)
         label_probs = self._labels_to_prob_matrix(np.asarray(self.labels), num_classes)
-        labeled_targets = label_probs[labeled]
+        labeled_targets = label_probs[labeled_positions]
 
         index = _build_hnsw_index(x_labeled)
         nn_k = min(n_neighbors, len(labeled))
@@ -527,10 +530,11 @@ class SamplingStrategy:
             logger.warning("sklearn_coreset: no labeled samples, falling back to random")
             return self._random()
 
-        # Build y: labeled samples get a dummy label (0), unlabeled get MISSING_LABEL.
+        # Build y: labeled samples get a dummy label (0), everything else (unlabeled
+        # AND validation) gets MISSING_LABEL so only true labeled samples serve as anchors.
         # CoreSet only uses y to distinguish labeled from unlabeled — label values are ignored.
-        y = np.zeros(n_total, dtype=float)
-        y[self.unlabeled_indices] = MISSING_LABEL
+        y = np.full(n_total, MISSING_LABEL, dtype=float)
+        y[self.labeled_indices] = 0
 
         strategy = CoreSet(missing_label=MISSING_LABEL)
 
@@ -589,9 +593,10 @@ class SamplingStrategy:
         pca_dim = 64
         X = _project_with_pca(self.embeddings.astype(np.float32, copy=False), out_dim=pca_dim)
 
-        # Build y: labeled samples get a dummy label (0), unlabeled get MISSING_LABEL.
-        y = np.zeros(n_total, dtype=float)
-        y[self.unlabeled_indices] = MISSING_LABEL
+        # Build y: labeled samples get a dummy label (0), everything else (unlabeled
+        # AND validation) gets MISSING_LABEL so only true labeled samples serve as anchors.
+        y = np.full(n_total, MISSING_LABEL, dtype=float)
+        y[self.labeled_indices] = 0
 
         strategy = TypiClust(missing_label=MISSING_LABEL)
 

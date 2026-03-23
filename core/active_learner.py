@@ -134,6 +134,13 @@ class Manager:
                 else:
                     exp['annotations_path'] = ann_path
 
+            if 'metadata_path' in exp:
+                meta_path = Path(exp['metadata_path'])
+                if not meta_path.is_absolute():
+                    exp['metadata_path'] = self.base_dir / meta_path
+                else:
+                    exp['metadata_path'] = meta_path
+
         logger.info(f"Loaded {len(experiments)} experiment configurations from {path}")
         return experiments
 
@@ -252,6 +259,8 @@ class Manager:
             new_config['embeddings_dir'] = Path(new_config['embeddings_dir'])
         if 'annotations_path' in new_config:
             new_config['annotations_path'] = Path(new_config['annotations_path'])
+        if 'metadata_path' in new_config:
+            new_config['metadata_path'] = Path(new_config['metadata_path'])
 
         exp_name = name or f'experiment_{len(self.experiments)}'
         self.experiment_names.append(exp_name)
@@ -376,14 +385,17 @@ class ActiveLearner:
         pretrain_samples: Optional[int] = None,
         dropout_rate: float = 0.0,
         mc_dropout_passes: int = 1,
-        verbose: bool = True
+        verbose: bool = True,
+        metadata_path: Optional[Path] = None,
     ):
         """
         Initialize active learner
 
         Args:
             embeddings_dir: Path to embeddings directory
-            annotations_path: Path to annotations CSV
+            annotations_path: Path to annotations CSV (labels.csv) — used internally
+                              for training. Must contain a 'filename' and 'label' column,
+                              and optionally a 'validation' column.
             model_name: Name of the model (e.g., 'birdnet')
             dataset_name: Name of the dataset (e.g., 'FewShot')
             hidden_dim: Dimension of intermediate embedding
@@ -396,6 +408,11 @@ class ActiveLearner:
             n_samples_per_iteration: Default number of samples to select per iteration
             pretrain_samples: Number of high-density samples to pre-select for warm-up training (optional)
             verbose: Whether to enable INFO-level logging (default True). Set False to suppress logs.
+            metadata_path: Optional path to a label-free metadata CSV (metadata.csv).
+                           When provided, this DataFrame (aligned to the same rows as
+                           annotations_path) is passed to sampling strategies instead of
+                           the labels CSV, preventing participants from accessing
+                           ground-truth labels for unlabeled samples.
         """
         if not verbose:
             logger.setLevel(logging.WARNING)
@@ -437,6 +454,21 @@ class ActiveLearner:
         # print("="*50, file=sys.stderr)
         # sys.stderr.flush()
         self.embeddings, self.labels, self.label_to_idx, self.idx_to_label, self.annotations_df, _val_mask = self._load_data()
+
+        # Load label-free metadata for the sampling interface (optional).
+        # Aligned to self.annotations_df on 'filename' so row i in metadata_df
+        # corresponds to the same sample as row i in annotations_df / embeddings.
+        if metadata_path is not None:
+            meta_df = pd.read_csv(metadata_path)
+            self.metadata_df = (
+                self.annotations_df[['filename']]
+                .merge(meta_df, on='filename', how='left')
+                .reset_index(drop=True)
+            )
+            logger.info(f"Loaded metadata from {metadata_path} ({len(self.metadata_df)} rows, "
+                        f"columns: {list(self.metadata_df.columns)})")
+        else:
+            self.metadata_df = None
 
         # Build validation index set (these are never sampled or trained on)
         self.validation_indices: set = set(np.where(_val_mask.values)[0].tolist())
@@ -769,17 +801,23 @@ class ActiveLearner:
         unlabeled_list = sorted(self.unlabeled_indices)
         labeled_list = sorted(self.labeled_indices)
 
+        # Pass only the labels for the labeled pool (aligned with labeled_list by position).
+        # This prevents sampling strategies from accessing ground-truth labels for
+        # unlabeled or validation samples. Participants can recover the embedding for
+        # labels[i] via embeddings[labeled_indices[i]] (same sorted order).
+        labeled_labels = self.labels[labeled_list] if len(labeled_list) > 0 else None
+
         # Call the sampling strategy with all available data
         # Now returns both selected indices and uncertainties
         _t0 = time.perf_counter()
         selected, unlabeled_uncertainties = self.sampling_strategy.select(
             unlabeled_indices=unlabeled_list,
-            predictions=mean_predictions, # TODO: if self.mc_dropout_passes > 1 this could break non-mc sampling methods
+            predictions=mean_predictions,
             embeddings=self.embeddings,
             model=self.model,
-            annotations=self.annotations_df,
+            metadata=self.metadata_df,
             labeled_indices=labeled_list,
-            labels=self.labels,
+            labels=labeled_labels,
             mc_predictions=predictions if self.mc_dropout_passes > 1 else None
         )
         self._pending_sampling_time += time.perf_counter() - _t0
