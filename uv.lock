@@ -160,7 +160,7 @@ wheels = [
 
 [[package]]
 name = "baseal"
-version = "1.1.4"
+version = "1.1.6"
 source = { editable = "." }
 dependencies = [
     { name = "faiss-cpu" },
@@ -188,7 +188,7 @@ requires-dist = [
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "librosa", specifier = ">=0.10.0" },
     { name = "matplotlib", specifier = ">=3.7.0" },
-    { name = "numpy", specifier = ">=1.24.0" },
+    { name = "numpy", specifier = ">=1.24.0,<2.0" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "python-multipart", specifier = "==0.0.6" },
     { name = "pyyaml" },

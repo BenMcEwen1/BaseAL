@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "BaseAL"
-version = "1.1.5"
+version = "1.1.6"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "torch>=2.6",
@@ -15,7 +15,7 @@ dependencies = [
     "matplotlib>=3.7.0",
     "fastapi==0.104.1",
     "uvicorn[standard]==0.24.0",
-    "numpy>=1.24.0",
+    "numpy>=1.24.0,<2.0",
     "python-multipart==0.0.6",
     "umap-learn",
     "scikit-activeml>=0.6.2",
