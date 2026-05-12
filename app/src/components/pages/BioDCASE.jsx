@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 
+const leaderboardEntries = [
+  { team: 'Baseline', method: 'Random',      aulc: 0.40100,  compCostRelative: 1.0, wallTime: 0.00095,  annotationCost: 96.75  },
+  { team: 'Baseline', method: 'Margin',      aulc: 0.39900,  compCostRelative: 1.0, wallTime: 0.00249,  annotationCost: 125.50 },
+  { team: 'Baseline', method: 'CoreSet',     aulc: 0.42154,  compCostRelative: 1.0, wallTime: 6.34688,  annotationCost: 108.50 },
+  { team: 'Baseline', method: 'TypiCluster', aulc: 0.39080,  compCostRelative: 1.0, wallTime: 25.28352, annotationCost: 98.25  },
+];
+
 const teamMembers = [
   {
     id: 1,
@@ -398,6 +405,73 @@ function Timeline() {
   );
 }
 
+function Leaderboard() {
+  const sorted = [...leaderboardEntries].sort((a, b) => b.aulc - a.aulc);
+
+  const headerStyle = {
+    padding: '10px 14px',
+    fontSize: '0.65rem',
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    textAlign: 'right',
+    borderBottom: '1px solid rgba(255,255,255,0.1)',
+  };
+  const headerFirst = { ...headerStyle, textAlign: 'left' };
+
+  const cellStyle = (rank) => ({
+    padding: '10px 14px',
+    fontSize: '0.75rem',
+    color: rank === 1 ? '#ffd700' : 'rgba(255,255,255,0.85)',
+    textAlign: 'right',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    fontWeight: rank === 1 ? '700' : '400',
+  });
+  const cellFirst = (rank) => ({ ...cellStyle(rank), textAlign: 'left' });
+
+  return (
+    <>
+      <h2>Leaderboard</h2>
+      <p>If you wish to participate in the development set leaderboard, please email your submissions directly to Ben McEwen (<em>benmcewen@outlook.com</em>).</p>
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(74, 180, 226, 0.1), rgba(74, 180, 226, 0.03))',
+        border: '1px solid rgba(74, 180, 226, 0.25)',
+        borderRadius: '12px',
+        marginBottom: '40px',
+        overflowX: 'auto',
+      }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ ...headerFirst, width: '36px' }}>#</th>
+              <th style={headerFirst}>Team</th>
+              <th style={headerFirst}>Method</th>
+              <th style={headerStyle}>AULC (mAP macro)</th>
+              <th style={headerStyle}>Comp. cost (rel.)</th>
+              <th style={headerStyle}>Wall-time (s)</th>
+              <th style={headerStyle}>Annotation cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((entry, i) => (
+              <tr key={entry.method}>
+                <td style={cellFirst(i + 1)}>{i + 1}</td>
+                <td style={cellFirst(i + 1)}>{entry.team}</td>
+                <td style={cellFirst(i + 1)}>{entry.method}</td>
+                <td style={cellStyle(i + 1)}>{entry.aulc.toFixed(5)}</td>
+                <td style={cellStyle(i + 1)}>{entry.compCostRelative.toFixed(1)}</td>
+                <td style={cellStyle(i + 1)}>{entry.wallTime.toFixed(5)}</td>
+                <td style={cellStyle(i + 1)}>{entry.annotationCost.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
 export default function BioDCASE() {
   return (
     <div style={{
@@ -429,6 +503,8 @@ export default function BioDCASE() {
         <p>Learn more about this and other challenges <a href='https://biodcase.github.io/challenge2026/summary' target=''>here</a>.</p>
 
         <Timeline />
+
+        <Leaderboard />
 
         <h2>Organising Team</h2>
         <div style={{

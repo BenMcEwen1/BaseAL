@@ -11,9 +11,9 @@ const CHALLENGE_PAGES = [
     title: 'BioDCASE - Active Learning for Bioacoustics',
     component: BioDCASE,
     subpages: [
-      { id: 'instructions', title: 'Instructions', component: Setup },
-      { id: 'datasets', title: 'Datasets', component: Datasets },
-      { id: 'baselines', title: 'Baselines', component: Baselines },
+      // { id: 'instructions', title: 'Instructions', component: Setup },
+      // { id: 'datasets', title: 'Datasets', component: Datasets },
+      // { id: 'baselines', title: 'Baselines', component: Baselines },
       // Add more subpages here as needed
     ]
   },
