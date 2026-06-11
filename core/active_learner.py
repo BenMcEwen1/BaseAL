@@ -708,7 +708,15 @@ class ActiveLearner:
         logger.info(f"Running '{self.warmup_strategy.method}' warmup for {len(candidate_indices)} candidates...")
 
         _t0 = time.perf_counter()
-        selected = self.warmup_strategy.select(candidate_indices, self.embeddings)
+        selected = self.warmup_strategy.select(
+            candidate_indices,
+            self.embeddings,
+            metadata=self.metadata_df,
+            labeled_indices=sorted(self.labeled_indices),
+            labels=self.labels,
+            num_classes=len(self.label_to_idx),
+            model=self.model,
+        )
         self._pending_sampling_time = time.perf_counter() - _t0
 
         self.labeled_indices = set(selected)

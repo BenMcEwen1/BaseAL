@@ -658,19 +658,44 @@ class WarmupStrategy:
             'custom': self._custom,
         }
 
-        # Set by select() before calling method implementations
+        # Data attributes (set by select())
         self.candidate_indices: Optional[np.ndarray] = None
         self.embeddings: Optional[np.ndarray] = None
+        self.predictions: Optional[np.ndarray] = None
+        self.model = None
+        self.metadata: Optional[pd.DataFrame] = None
+        self.labeled_indices: Optional[List[int]] = None
+        self.labels: Optional[np.ndarray] = None
+        self.mc_predictions: Optional[np.ndarray] = None
+        self.num_classes: Optional[int] = None
 
         logger.info(f"Initialized WarmupStrategy with method='{method}' and n_samples={n_samples}")
 
-    def select(self, candidate_indices: np.ndarray, embeddings: np.ndarray) -> List[int]:
+    def select(self,
+               candidate_indices: np.ndarray,
+               embeddings: np.ndarray,
+               predictions: Optional[np.ndarray] = None,
+               model=None,
+               metadata: Optional[pd.DataFrame] = None,
+               labeled_indices: Optional[List[int]] = None,
+               labels: Optional[np.ndarray] = None,
+               mc_predictions: Optional[np.ndarray] = None,
+               num_classes: Optional[int] = None) -> List[int]:
         """
         Select warmup samples from the candidate pool.
 
         Args:
             candidate_indices: Sorted array of global sample indices (all non-validation samples)
             embeddings: Full embeddings array of shape (n_total_samples, embedding_dim)
+            predictions: Optional model predictions (N x num_classes). None at warmup since
+                         the model has not been trained yet.
+            model: Optional reference to the model
+            metadata: Optional DataFrame containing metadata
+            labeled_indices: Optional list of already-labeled sample indices (empty at warmup)
+            labels: Optional ground-truth labels for all samples (n_total_samples,) or
+                    (n_total_samples, num_classes) for multilabel
+            mc_predictions: Optional repeated forward-pass predictions (mc_passes, N, num_classes)
+            num_classes: Number of target classes
 
         Returns:
             List of selected global indices (length <= n_samples)
@@ -681,6 +706,13 @@ class WarmupStrategy:
 
         self.candidate_indices = candidate_indices
         self.embeddings = embeddings
+        self.predictions = predictions
+        self.model = model
+        self.metadata = metadata
+        self.labeled_indices = labeled_indices if labeled_indices is not None else []
+        self.labels = labels
+        self.mc_predictions = mc_predictions
+        self.num_classes = num_classes
 
         utility = np.asarray(self._method_map[self.method](), dtype=np.float32)
         top_local = np.argsort(utility)[-n:]
@@ -732,9 +764,19 @@ class WarmupStrategy:
            - self.embeddings:        full embedding array (n_total x embedding_dim);
                                      access candidate embeddings via
                                      self.embeddings[self.candidate_indices]
-
-        Note: No model predictions exist at warmup time -- only raw embeddings
-        are available.
+           - self.labels:            ground-truth labels for all samples,
+                                     shape (n_total,) for single-label or
+                                     (n_total, num_classes) for multilabel
+           - self.num_classes:       number of target classes
+           - self.metadata:          optional DataFrame with label-free metadata
+                                     (one row per sample, aligned to embeddings)
+           - self.labeled_indices:   list of already-labeled global indices
+                                     (empty at the start of warmup)
+           - self.model:             reference to the untrained classifier
+           - self.predictions:       None at warmup (model has not been trained yet)
+           - self.mc_predictions:    None at warmup
+           - self.n_samples:         target number of warmup samples to select
+           - self.rng:               numpy random Generator for reproducible sampling
 
         Returns:
             utility: Array of utility scores for candidates, shape (n_candidates,)
@@ -742,3 +784,15 @@ class WarmupStrategy:
         # TODO: Implement your custom warmup logic here
         logger.warning("Custom warmup not implemented, falling back to density sampling")
         return self._density()
+
+    @staticmethod
+    def _normalize(scores: np.ndarray) -> np.ndarray:
+        """Normalize scores to [0, 1]."""
+        if len(scores) == 0:
+            return np.array([], dtype=np.float32)
+        scores = np.asarray(scores, dtype=np.float32)
+        min_v = float(np.min(scores))
+        max_v = float(np.max(scores))
+        if np.isclose(max_v, min_v):
+            return np.zeros_like(scores, dtype=np.float32)
+        return (scores - min_v) / (max_v - min_v)
