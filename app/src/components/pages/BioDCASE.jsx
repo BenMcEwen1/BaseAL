@@ -9,6 +9,24 @@ const leaderboardEntries = [
   { team: 'WayneYang', method: 'safe_rarity', aulc: 0.49079, compCostRelative: 1.0, wallTime: 0.074, annotationCost: 1085.65 }
 ];
 
+const finalRanking = [
+  { team: 'GabrielDubus',       method: 'ADU-MMR',                           aulc: 0.50670, compCostRelative: 2.0, wallTime: 1.00562, annotationCost: 1026.70 },
+  { team: 'HugoMagaldi',        method: 'CARE-DPP',                          aulc: 0.50477, compCostRelative: 1.1, wallTime: 0.21549, annotationCost: 1124.55 },
+  { team: 'HaoyuWang',          method: 'PB-MFS',                            aulc: 0.49855, compCostRelative: 1.6, wallTime: 0.48520, annotationCost: 1109.90 },
+  { team: 'WayneYang',          method: 'SafeRarity',                        aulc: 0.49194, compCostRelative: 1.0, wallTime: 0.38489, annotationCost: 1116.00 },
+  { team: 'MdRagibAminNihal',   method: 'CappedRarityKCenter',               aulc: 0.48082, compCostRelative: 0.9, wallTime: 0.12778, annotationCost: 1134.45 },
+  { team: 'JaquelineGarciaYi',  method: 'AFL',                               aulc: 0.47691, compCostRelative: 1.6, wallTime: 1.33255, annotationCost: 1031.80 },
+  { team: 'CleaParcerisas',     method: 'CoresetKMeans',                     aulc: 0.46909, compCostRelative: 1.0, wallTime: 4.09477, annotationCost: 1012.25 },
+  { team: 'Baseline',           method: 'Coreset',                           aulc: 0.46381, compCostRelative: 1.0, wallTime: 5.83834, annotationCost: 1023.60 },
+  { team: 'CleaParcerisas',     method: 'CoresetEigenvalues',                aulc: 0.43481, compCostRelative: 0.8, wallTime: 7.79982, annotationCost: 1010.60 },
+  { team: 'Baseline',           method: 'TypiClust',                         aulc: 0.42133, compCostRelative: 1.0, wallTime: 5.07597, annotationCost:  958.95 },
+  { team: 'Baseline',           method: 'MarginMultilabel',                  aulc: 0.40813, compCostRelative: 1.0, wallTime: 0.00242, annotationCost: 1263.65 },
+  { team: 'Baseline',           method: 'Random',                            aulc: 0.40133, compCostRelative: 1.0, wallTime: 0.00116, annotationCost:  966.05 },
+  { team: 'CleaParcerisas',     method: 'AllQuantilesKMeans',                aulc: 0.39697, compCostRelative: 1.0, wallTime: 0.32985, annotationCost:  992.05 },
+  { team: 'CleaParcerisas',     method: 'BalanceClassByClustersEigenvalues', aulc: 0.39309, compCostRelative: 0.8, wallTime: 0.10986, annotationCost: 1039.00 },
+];
+
+
 const teamMembers = [
   {
     id: 1,
@@ -408,7 +426,7 @@ function Timeline() {
 }
 
 function Leaderboard() {
-  const sorted = [...leaderboardEntries].sort((a, b) => b.aulc - a.aulc);
+  const sorted = [...finalRanking].sort((a, b) => b.aulc - a.aulc);
 
   const headerStyle = {
     padding: '10px 14px',
@@ -434,8 +452,8 @@ function Leaderboard() {
 
   return (
     <>
-      <h2>Leaderboard</h2>
-      <p>If you wish to participate in the development set leaderboard, please email your submissions directly to Ben McEwen (<em>benmcewen@outlook.com</em>).</p>
+      <h2>Final Leaderboard</h2>
+      <p>The BioDCASE challenge has now closed and further leaderboard submissions are unavailable.</p>
       <div style={{
         background: 'linear-gradient(135deg, rgba(74, 180, 226, 0.1), rgba(74, 180, 226, 0.03))',
         border: '1px solid rgba(74, 180, 226, 0.25)',

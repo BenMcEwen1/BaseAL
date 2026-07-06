@@ -585,14 +585,22 @@ class ActiveLearner:
         # --- Build embedding filenames and filter to existing files -----------
         # Construct expected embedding path for every annotation row
         stems = df['filename'].apply(lambda f: Path(f).stem)
-        embedding_names = stems + f".npy" # NOTE: _{self.model_name}
+        embedding_names = stems + ".npy"
 
         # Single directory listing instead of N individual Path.exists() calls
         existing_files = set(p.name for p in self.embeddings_dir.iterdir())
         exists_mask = embedding_names.isin(existing_files)
 
-        # If no exact matches, try suffix matching (embedding files may have a deployment prefix
-        # separated by '__', e.g. "deployment__<stem>_<model>.npy")
+        # Fallback 1: files stored as {stem}_{model_name}.npy (e.g. ATBFL embeddings)
+        if not exists_mask.any():
+            embedding_names_model = stems + f"_{self.model_name}.npy"
+            model_mask = embedding_names_model.isin(existing_files)
+            if model_mask.any():
+                embedding_names = embedding_names_model
+                exists_mask = model_mask
+
+        # Fallback 2: deployment-prefixed files separated by '__'
+        # e.g. "deployment__<stem>.npy" or "deployment__<stem>_<model>.npy"
         if not exists_mask.any():
             suffix_map = {f.split('__', 1)[-1]: f for f in existing_files}
             exists_mask = embedding_names.isin(suffix_map)
