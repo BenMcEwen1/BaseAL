@@ -19,9 +19,17 @@ def densityEstimation(embeddings: Optional[np.ndarray] = None, method='cosine', 
     elif method == 'euclidean':
         similarity = euclidean_distances(embeddings)
     elif method == 'knn':
-        knn = NearestNeighbors(n_neighbors=k).fit(embeddings)
+        # Fetch k+1 neighbours and drop the self-match (distance 0 to itself,
+        # always returned first when querying with the same data used to fit)
+        # so exactly k real neighbours are scored. Invert distance to a
+        # proximity score so points surrounded by many close neighbours (i.e.
+        # in dense regions) get a high score, matching the 'cosine' branch's
+        # similarity semantics (higher = denser) instead of the reverse.
+        n_neighbors = min(k + 1, len(embeddings))
+        knn = NearestNeighbors(n_neighbors=n_neighbors).fit(embeddings)
         distance, _ = knn.kneighbors(embeddings)
-        similarity = distance.T
+        distance = distance[:, 1:]
+        similarity = (1.0 / (distance + 1e-8)).T
     else:
         raise Exception("Unknown similarity estimation method, ")
 

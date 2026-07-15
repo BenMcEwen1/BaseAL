@@ -18,9 +18,9 @@ The tool provides a complete pipeline for evaluating sampling strategies and 3D 
 - **Experiment Management**: Track and compare different active learning configurations
 - **Interactive 3D Visualisation**: Explore high-dimensional embeddings using PCA/UMAP reduction with an interactive Three.js interface
 - **Multiple Sampling Strategies**: Compare different sampling and diversification strategies
-- **Model Integration**: Built on [Bacpipe](https://github.com/bioacoustic-ai/bacpipe) for seamless integration with bioacoustic models
+- **Model Integration**: Simulates transfer learning of embeddings using an adjustable classification head.
 
-**For BaseAL compatible dataset generation see the [dataset generator](https://github.com/BenMcEwen1/dataset-generator). You can download the ESC50 demo data [here](https://drive.google.com/file/d/183yLkZ1G8W3nXESkxcs1NERPGuFhofXu/view?usp=sharing).*
+**For BaseAL compatible dataset generation see the [dataset generator](https://github.com/BenMcEwen1/dataset-generator). This is built on [Bacpipe](https://github.com/bioacoustic-ai/bacpipe) for seamless integration with bioacoustic models
 
 # Setup
 
@@ -44,6 +44,15 @@ See the **Dependencies** list in [pyproject.toml](pyproject.toml).
 ### Get Started
 
 See the [docs](core/docs/) to get started working with the BaseAL framework, and developing active learning sampling strategies.
+
+### Running Tests
+
+```bash
+uv sync --extra test
+uv run pytest -v
+```
+
+Tests run against small synthetic embedding datasets generated on the fly (no demo data download required) and cover the sampling strategies, warm-up strategies, the neural network model, the `ActiveLearner`/`Manager` pipeline, and the embedding visualisation utilities in `core/`.
 
 If you are a participating in the BioDCASE data challenge, an `biodcase_example.ipynb` is setup [here](core/docs/biodcase_example.ipynb) with everything needed to get started.
 

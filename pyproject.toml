@@ -24,6 +24,10 @@ dependencies = [
     "jupyter>=1.1.1",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4",
+]
 
 [tool.setuptools]
 packages = []  # No packages to include - BaseAL is a project root, not a package
@@ -33,3 +37,7 @@ required-environments = ["sys_platform == 'win32' and python_full_version >= '3.
 
 [tool.uv.sources]
 bacpipe = { workspace = true }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

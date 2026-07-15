@@ -238,7 +238,9 @@ def _prepare_visualization_data(
     annotations = annotations.reset_index(drop=True).copy()
     annotations["annotation_index"] = np.arange(len(annotations), dtype=np.int64)
     annotations["matched_index"] = annotations["annotation_index"].to_numpy(copy=True)
-    annotations["embedding_name"] = (stems + f"_{dataset.model_name}.npy").to_numpy()
+    annotations["embedding_name"] = _resolve_embedding_names(
+        stems=stems, model_name=dataset.model_name, embeddings_dir=dataset.embeddings_dir,
+    )
     annotations["label_string"] = label_strings.to_numpy()
 
     selected_idxes, sampled_annotations = _select_annotations_by_idxes(
@@ -270,6 +272,39 @@ def _prepare_visualization_data(
         dataset_path=dataset.dataset_path,
         embeddings_dir=dataset.embeddings_dir,
     )
+
+
+def _resolve_embedding_names(
+    stems: pd.Series,
+    model_name: str,
+    embeddings_dir: Path,
+) -> np.ndarray:
+    """
+    Resolve each row's embedding filename against whichever naming
+    convention is actually present on disk, mirroring
+    `ActiveLearner._load_data`'s primary/fallback matching so the same
+    dataset resolves identically whether loaded via `ActiveLearner` or
+    `visualize_embeddings`.
+
+    Tries, in order:
+      1. '{stem}.npy'               (e.g. the real ESC10_BASEAL demo data)
+      2. '{stem}_{model_name}.npy'  (e.g. BirdSet-style suffixed embeddings)
+
+    Falls back to convention 1's names if neither matches any file on disk,
+    so a genuinely missing-embedding error surfaces at load time with the
+    more conventional filename.
+    """
+    existing_files = {p.name for p in embeddings_dir.iterdir()}
+
+    primary_names = (stems + ".npy")
+    if primary_names.isin(existing_files).any():
+        return primary_names.to_numpy()
+
+    suffixed_names = (stems + f"_{model_name}.npy")
+    if suffixed_names.isin(existing_files).any():
+        return suffixed_names.to_numpy()
+
+    return primary_names.to_numpy()
 
 
 def _extract_class_names(label_strings: pd.Series) -> list[str]:
