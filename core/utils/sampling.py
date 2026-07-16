@@ -634,6 +634,188 @@ class SamplingStrategy:
         return utility.astype(np.float32)
 
 
+class ValidationStrategy:
+    """
+    Selects which held-out validation samples to reveal for the participant's
+    own performance estimate ("active testing").
+
+    Mirrors SamplingStrategy's select() contract, but operates on the
+    validation pool instead of the unlabeled training pool. Selections made
+    here are never added to the training set -- see
+    ActiveLearner.add_validation_samples().
+    """
+
+    def __init__(self, method: str = "random", n_samples: int = 5, random_state: Optional[int] = None):
+        """
+        Initialize validation strategy
+
+        Args:
+            method: Validation sampling method to use ('random', 'custom')
+            n_samples: Number of validation samples to select per call
+            random_state: Optional random seed for reproducibility
+        """
+        self.method = method
+        self.n_samples = n_samples
+        self.rng = np.random.default_rng(random_state)
+
+        available_methods = [
+            'random',
+            'custom',
+        ]
+
+        if method not in available_methods:
+            raise ValueError(
+                f"Unknown validation strategy: {method}. "
+                f"Available strategies: {available_methods}"
+            )
+
+        self._method_map = {
+            'random': self._random,
+            'custom': self._custom,
+        }
+
+        # Data attributes (see select())
+        self.validation_candidate_indices = None
+        self.predictions = None
+        self.embeddings = None
+        self.model = None
+        self.metadata = None
+        self.labeled_indices = None
+        self.labels = None
+        self.validation_labeled_indices = None
+        self.validation_labels = None
+        self.mc_predictions = None
+
+        logger.info(f"Initialized ValidationStrategy with method='{method}' and n_samples={n_samples}")
+
+    def select(self,
+               validation_candidate_indices: List[int],
+               predictions: Optional[np.ndarray] = None,
+               embeddings: Optional[np.ndarray] = None,
+               model=None,
+               metadata: Optional[pd.DataFrame] = None,
+               labeled_indices: Optional[List[int]] = None,
+               labels: Optional[np.ndarray] = None,
+               validation_labeled_indices: Optional[List[int]] = None,
+               validation_labels: Optional[np.ndarray] = None,
+               mc_predictions: Optional[np.ndarray] = None) -> Tuple[List[int], np.ndarray]:
+        """
+        Select validation samples to reveal and compute per-candidate utility.
+
+        This is the main selection method that stores the input data as
+        instance attributes and calls the appropriate validation method.
+
+        Args:
+            validation_candidate_indices: List/array of unrevealed validation
+                sample indices -- the ONLY pool a selection can be drawn from.
+            predictions: Optional numpy array of model predictions (N x num_classes)
+            embeddings: Optional numpy array of embeddings (N x embedding_dim)
+            model: Optional reference to the model itself
+            metadata: Optional DataFrame containing metadata
+            labeled_indices: Optional list of already-labeled TRAINING sample
+                indices (mirrors SamplingStrategy's labeled_indices)
+            labels: Optional ground-truth labels for the labeled training pool,
+                aligned with labeled_indices by position
+            validation_labeled_indices: Optional list of already-revealed
+                VALIDATION sample indices -- samples this strategy has already
+                selected and "paid for" in a previous call
+            validation_labels: Optional ground-truth labels for the revealed
+                validation pool, aligned with validation_labeled_indices by
+                position
+            mc_predictions: Optional repeated forward-pass predictions
+                (mc_passes, N, num_classes)
+
+        Returns:
+            Tuple of (selected_indices, utility), same shape as
+            SamplingStrategy.select().
+
+        Note on the no-leakage guarantee: `labels` and `validation_labels`
+        never include ground truth for `validation_candidate_indices` itself
+        -- a strategy cannot see a sample's label before deciding whether to
+        reveal it. Callers (see ActiveLearner.sample_validation()) must never
+        pass a labels array that could be indexed to recover a candidate's
+        true label.
+        """
+        if len(validation_candidate_indices) == 0:
+            logger.warning("No validation candidates available for selection")
+            return [], np.array([])
+
+        # Store data as instance attributes for validation methods to access
+        self.validation_candidate_indices = validation_candidate_indices
+        self.predictions = predictions
+        self.embeddings = embeddings
+        self.model = model
+        self.metadata = metadata
+        self.labeled_indices = labeled_indices if labeled_indices is not None else []
+        self.labels = labels
+        self.validation_labeled_indices = validation_labeled_indices if validation_labeled_indices is not None else []
+        self.validation_labels = validation_labels
+        self.mc_predictions = mc_predictions
+
+        # Call the appropriate validation method to get utility scores
+        selection_func = self._method_map[self.method]
+        utility = np.asarray(selection_func(), dtype=np.float32)
+
+        if len(utility) != len(validation_candidate_indices):
+            raise ValueError(
+                f"Validation strategy '{self.method}' returned {len(utility)} scores, "
+                f"expected {len(validation_candidate_indices)}"
+            )
+
+        # Select samples with highest utility
+        n_samples = min(self.n_samples, len(validation_candidate_indices))
+        top_indices = np.argsort(utility)[-n_samples:]
+
+        selected = np.array(validation_candidate_indices)[top_indices].tolist()
+
+        logger.info(f"Selected {len(selected)} validation samples using {self.method} strategy")
+        logger.info(f"utility range: min={utility.min():.4f}, max={utility.max():.4f}, mean={utility.mean():.4f}")
+
+        return selected, utility
+
+    def _random(self) -> np.ndarray:
+        """
+        Random validation sampling strategy (default) -- assigns equal
+        utility to all candidates, so selection is effectively random.
+
+        Returns:
+            utility: Random scores for each candidate
+        """
+        return self.rng.random(len(self.validation_candidate_indices)).astype(np.float32)
+
+    def _custom(self) -> np.ndarray:
+        """
+        Custom validation sampling template.
+
+        INSTRUCTIONS FOR IMPLEMENTING CUSTOM VALIDATION SAMPLING:
+        ===========================================================
+
+        1. This method computes utility scores for all validation candidates.
+
+        2. Scores should be normalized to [0, 1] where:
+           - 1.0 = maximum utility (highest priority to reveal)
+           - 0.0 = lowest utility (lowest priority)
+
+        3. Available instance attributes (set by select() method):
+           - self.validation_candidate_indices: List of unrevealed validation
+                                                 candidate indices
+           - self.predictions: Model predictions array of shape (n_total_samples, num_classes)
+           - self.embeddings: Full embeddings array of shape (n_total_samples, embedding_dim)
+           - self.model: Reference to the trained model
+           - self.metadata: DataFrame containing annotation data and metadata
+           - self.labeled_indices / self.labels: already-revealed TRAINING pool
+           - self.validation_labeled_indices / self.validation_labels:
+                 already-revealed VALIDATION pool (this strategy's own prior
+                 selections) -- never includes validation_candidate_indices
+
+        Returns:
+            utility: Array of utility scores for candidates [0, 1]
+        """
+        # TODO: Implement your custom validation sampling logic here
+        logger.warning("Custom validation strategy not implemented, falling back to random")
+        return self._random()
+
+
 class WarmupStrategy:
     """
     Warmup sampling strategies for pre-training initialisation.

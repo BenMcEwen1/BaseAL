@@ -23,7 +23,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import f1_score, average_precision_score
 
 # Initialize sampling strategy
-from .utils.sampling import SamplingStrategy, WarmupStrategy
+from .utils.sampling import SamplingStrategy, WarmupStrategy, ValidationStrategy
 
 # Suppress numba warnings and debug output
 warnings.filterwarnings('ignore', module='numba')
@@ -390,6 +390,11 @@ class ActiveLearner:
         mc_dropout_passes: int = 1,
         verbose: bool = True,
         metadata_path: Optional[Path] = None,
+        validation_strategy: str = "random",
+        n_validation_samples_per_iteration: int = 5,
+        min_positives_per_class: int = 10,
+        alpha: float = 0.10,
+        n_bootstrap: int = 500,
     ):
         """
         Initialize active learner
@@ -416,6 +421,20 @@ class ActiveLearner:
                            annotations_path) is passed to sampling strategies instead of
                            the labels CSV, preventing participants from accessing
                            ground-truth labels for unlabeled samples.
+            validation_strategy: Validation sampling method to use for "active testing"
+                              (e.g., 'random', 'custom'). Selects which held-out validation
+                              samples to reveal via sample_validation()/add_validation_samples().
+                              Unused unless those methods are called -- byte-for-byte
+                              backwards compatible when they aren't.
+            n_validation_samples_per_iteration: Default number of validation samples to
+                              reveal per sample_validation() call
+            min_positives_per_class: Minimum positive instances a class needs within the
+                              revealed validation subset (validation_labeled_indices) to
+                              count as "scored" -- see compute_scored_class_truth().
+            alpha: Miss-rate for the participant's bootstrap performance interval, e.g.
+                              0.10 for a 90% interval (5th/95th percentiles). See
+                              compute_validation_estimate().
+            n_bootstrap: Number of bootstrap resamples for compute_validation_estimate().
         """
         if not verbose:
             logger.setLevel(logging.WARNING)
@@ -513,15 +532,32 @@ class ActiveLearner:
         logger.info(f"Initialized '{warmup_strategy}' warmup strategy with n_samples={self.pretrain_samples}")
         self.warmup_epochs = warmup_epochs
         self.warmup_batch_size = warmup_batch_size
+        self.validation_strategy = ValidationStrategy(method=validation_strategy, n_samples=n_validation_samples_per_iteration)
+        logger.info(f"Initialized '{validation_strategy}' validation strategy with n_samples={n_validation_samples_per_iteration}")
+        self.min_positives_per_class = min_positives_per_class
+        self.alpha = alpha
+        self.n_bootstrap = n_bootstrap
 
         # Active learning state (validation indices are excluded from both pools)
         self.labeled_indices = set()
         self.unlabeled_indices = set(range(len(self.embeddings))) - self.validation_indices
         self.training_history = []
 
+        # "Active testing" state: validation samples the participant has
+        # revealed via sample_validation()/add_validation_samples(). Always a
+        # subset of validation_indices, always disjoint from labeled_indices --
+        # revealed validation samples are never trained on. Empty and unused
+        # unless those methods are called.
+        self.validation_labeled_indices: set = set()
+
         # Pending per-cycle supplementary metrics (populated by sample() / add_samples())
         self._pending_sampling_time: float = 0.0
         self._pending_annotation_cost: int = 0
+        self._pending_validation_annotation_cost: int = 0
+
+        # Per-class AP from the most recent train_step() repeat (internal-only,
+        # see train_step() for details).
+        self._last_per_class_ap: Dict[int, float] = {}
 
         # Per-sample uncertainties (updated after each sampling step)
         self.uncertainties = np.zeros(len(self.embeddings))
@@ -880,6 +916,102 @@ class ActiveLearner:
 
         logger.info(f"Added {len(indices)} samples. Labeled: {len(self.labeled_indices)}, Unlabeled: {len(self.unlabeled_indices)}")
 
+    def sample_validation(self, n_samples: Optional[int] = None) -> List[int]:
+        """
+        Sample validation data points using the configured validation strategy
+        ("active testing", v2). Mirrors sample(), but draws from the held-out
+        validation pool (validation_indices - validation_labeled_indices)
+        instead of the unlabeled training pool.
+
+        Selected indices are NOT added to labeled_indices and are never
+        trained on -- see add_validation_samples().
+
+        Args:
+            n_samples: Number of validation samples to select (overrides default if provided)
+
+        Returns:
+            List of selected validation indices
+        """
+        available = self.validation_indices - self.validation_labeled_indices
+        if len(available) == 0:
+            logger.warning("No unrevealed validation samples remaining")
+            return []
+
+        # Override n_samples if provided
+        if n_samples is not None:
+            original_n = self.validation_strategy.n_samples
+            self.validation_strategy.n_samples = n_samples
+
+        predictions = self._predict_all()
+        if self.mc_dropout_passes > 1:
+            mean_predictions = predictions.mean(axis=0)
+        else:
+            mean_predictions = predictions
+
+        candidate_list = sorted(available)
+        labeled_list = sorted(self.labeled_indices)
+        validation_labeled_list = sorted(self.validation_labeled_indices)
+
+        # Same firewall as sample(): only ever pass labels for pools the
+        # participant has already paid for (revealed training + previously
+        # revealed validation). Never pass labels for `candidate_list` itself
+        # -- those are exactly the labels this call is deciding whether to
+        # reveal.
+        labeled_labels = self.labels[labeled_list] if len(labeled_list) > 0 else None
+        validation_labeled_labels = (
+            self.labels[validation_labeled_list] if len(validation_labeled_list) > 0 else None
+        )
+
+        _t0 = time.perf_counter()
+        selected, _ = self.validation_strategy.select(
+            validation_candidate_indices=candidate_list,
+            predictions=mean_predictions,
+            embeddings=self.embeddings,
+            model=self.model,
+            metadata=self.metadata_df,
+            labeled_indices=labeled_list,
+            labels=labeled_labels,
+            validation_labeled_indices=validation_labeled_list,
+            validation_labels=validation_labeled_labels,
+            mc_predictions=predictions if self.mc_dropout_passes > 1 else None,
+        )
+        self._pending_sampling_time += time.perf_counter() - _t0
+
+        # Restore original n_samples if it was overridden
+        if n_samples is not None:
+            self.validation_strategy.n_samples = original_n
+
+        logger.info(f"Selected {len(selected)} validation samples using {self.validation_strategy.__class__.__name__}")
+        return selected
+
+    def add_validation_samples(self, indices: List[int]):
+        """
+        Reveal validation samples for the participant's own performance
+        estimate ("active testing", v2). Mirrors add_samples(), but moves
+        indices into validation_labeled_indices -- NEVER into
+        labeled_indices, and never via add_samples(). This is the
+        no-leakage-into-training guarantee: revealed validation samples are
+        never trained on.
+
+        Args:
+            indices: List of validation indices to reveal
+        """
+        available = self.validation_indices - self.validation_labeled_indices
+        moved = available.intersection(indices)
+        self.validation_labeled_indices |= moved
+
+        # Same annotation-cost accounting convention as add_samples().
+        if self.is_multilabel:
+            self._pending_validation_annotation_cost += int(self.labels[list(moved)].sum())
+        else:
+            self._pending_validation_annotation_cost += len(moved)
+
+        logger.info(
+            f"Revealed {len(indices)} validation samples. "
+            f"Validation labeled: {len(self.validation_labeled_indices)}, "
+            f"Validation remaining: {len(self.validation_indices) - len(self.validation_labeled_indices)}"
+        )
+
     def _calculate_calibration_metrics(self, probabilities: np.ndarray, predicted: np.ndarray,
                                        labels: np.ndarray, n_bins: int = 10) -> Dict:
         """
@@ -1049,6 +1181,7 @@ class ActiveLearner:
                 # Calculate mAP (mean Average Precision) for multilabel
                 try:
                     aps = []
+                    aps_by_class: Dict[int, float] = {}
                     for class_idx in range(num_classes):
                         if labels_np[:, class_idx].sum() > 0:  # Only if class has samples
                             ap = average_precision_score(
@@ -1056,9 +1189,11 @@ class ActiveLearner:
                                 eval_probs[:, class_idx]
                             )
                             aps.append(ap)
+                            aps_by_class[class_idx] = float(ap)
                     mAP = np.mean(aps) if len(aps) > 0 else 0.0
                 except:
                     mAP = 0.0
+                    aps_by_class = {}
                     logger.warning("mAP calculation failed, using 0.0")
 
                 # For calibration in multilabel, use the maximum probability
@@ -1092,6 +1227,7 @@ class ActiveLearner:
 
                     # Calculate average precision for each class
                     aps = []
+                    aps_by_class: Dict[int, float] = {}
                     for class_idx in range(num_classes):
                         if labels_onehot[:, class_idx].sum() > 0:  # Only if class has samples
                             ap = average_precision_score(
@@ -1099,16 +1235,26 @@ class ActiveLearner:
                                 eval_probs[:, class_idx]
                             )
                             aps.append(ap)
+                            aps_by_class[class_idx] = float(ap)
 
                     mAP = np.mean(aps) if len(aps) > 0 else 0.0
                 except:
                     mAP = 0.0
+                    aps_by_class = {}
                     logger.warning("mAP calculation failed, using 0.0")
 
                 # Calculate calibration metrics
                 calibration_data = self._calculate_calibration_metrics(
                     eval_probs, predicted_np, labels_np
                 )
+
+            # Retain per-class AP from this repeat (last repeat wins, mirroring
+            # the existing "calibration data from last repeat" convention).
+            # Internal-only for now -- not exposed via the public metrics dict
+            # or export() schema; reserved for the active-testing scoring layer
+            # (class-set-matched organiser truth) to reuse without a second
+            # inference pass.
+            self._last_per_class_ap = aps_by_class
 
             # Store metrics for this repeat
             avg_loss = total_loss / max(1, len(X_train_orig) // batch_size)
@@ -1135,6 +1281,7 @@ class ActiveLearner:
             "mAP_sd": float(np.std(all_mAPs)) if self.repeats > 1 else 0.0,
             "n_labeled": len(self.labeled_indices),
             "n_unlabeled": len(self.unlabeled_indices),
+            "n_validated": len(self.validation_labeled_indices),
             "repeats": self.repeats,
             "epochs": epochs,
             "batch_size": batch_size,
@@ -1142,6 +1289,25 @@ class ActiveLearner:
             "annotation_cost": self._pending_annotation_cost,
             "calibration": calibration_data  # Add calibration data from last repeat
         }
+
+        # "Active testing" (v2): fold the participant's own validation
+        # estimate into the same per-cycle record as the training metrics
+        # above. compute_validation_estimate() is cheap and returns
+        # "unmeasured" (None) fields when no validation budget has been
+        # spent yet -- it does NOT trigger a second inference pass unless
+        # validation_labeled_indices is non-empty, so this has no cost for
+        # runs that never touch sample_validation()/add_validation_samples().
+        metrics.update(self.compute_validation_estimate())
+
+        # mAP_theta_scored_delta: how much easier the participant's own
+        # scored class set S is than the full task (mAP_theta_scored minus
+        # this SAME repeat's full-class-set truth, metrics['mAP']). A
+        # positive delta means S excludes harder classes. None when
+        # unmeasured, matching mAP_theta_scored itself.
+        metrics['mAP_theta_scored_delta'] = (
+            metrics['mAP_theta_scored'] - metrics['mAP']
+            if metrics['mAP_theta_scored'] is not None else None
+        )
 
         # Reset pending supplementary metrics for next cycle
         self._pending_sampling_time = 0.0
@@ -1161,6 +1327,40 @@ class ActiveLearner:
             'aulc_accuracy': aulc_accuracy,
             'aulc_f1_score': aulc_f1,
         })
+
+        # AULC over the scored-only LCB curve -- reuses compute_aulc()
+        # unmodified. compute_aulc() has no notion of "unmeasured"; cycles
+        # with no scored class yet report lcb_scored=None (honest, e.g. for
+        # export), so we store a second, always-numeric field (0.0
+        # substituted for None) purely for this integration -- the "zero
+        # anchor" design decision: an unmeasured cycle has proven zero
+        # performance, which is exactly the correct floor for a lower bound.
+        # NOTE: aulc_lcb_scored is a DIAGNOSTIC, not comparable across
+        # submissions (see compute_validation_estimate()) -- the bare name
+        # "aulc_lcb" is reserved for the full-task curve below.
+        lcb_scored_zeroed = metrics['lcb_scored'] if metrics['lcb_scored'] is not None else 0.0
+        metrics['lcb_scored_zeroed'] = lcb_scored_zeroed
+        self.training_history[-1]['lcb_scored_zeroed'] = lcb_scored_zeroed
+        aulc_lcb_scored = self.compute_aulc('lcb_scored_zeroed')
+        metrics['aulc_lcb_scored'] = aulc_lcb_scored
+        self.training_history[-1]['aulc_lcb_scored'] = aulc_lcb_scored
+
+        # AULC over the full-task, range-composed lcb curve. lcb is always a
+        # real number (see compute_validation_estimate()), so no zeroed
+        # shadow field is needed -- this is THE headline "performance you
+        # can demonstrate you have" curve, comparable across submissions.
+        aulc_lcb = self.compute_aulc('lcb')
+        metrics['aulc_lcb'] = aulc_lcb
+        self.training_history[-1]['aulc_lcb'] = aulc_lcb
+
+        # AULC over the 0-fill full-task curve -- kept as the
+        # maximally-pessimistic companion. This is a PENALTY, not a
+        # confidence bound (AP=0 for an unmeasured class asserts
+        # worse-than-random, which is below even the chance floor) -- do not
+        # read it as "lcb".
+        aulc_lcb_zero_fill = self.compute_aulc('lcb_zero_fill')
+        metrics['aulc_lcb_zero_fill'] = aulc_lcb_zero_fill
+        self.training_history[-1]['aulc_lcb_zero_fill'] = aulc_lcb_zero_fill
 
         logger.info(f"Training step complete: Loss={metrics['loss']:.4f}+-{metrics['loss_sd']:.4f}, "
                    f"Acc={metrics['accuracy']:.4f}+-{metrics['accuracy_sd']:.4f}, "
@@ -1194,6 +1394,442 @@ class ActiveLearner:
             return 0.0
         return float(np.trapz(values, n_labeled) / x_range)
 
+    def _per_class_positive_counts(self, labels_subset: np.ndarray) -> Dict[int, int]:
+        """
+        Count positive instances per class in a labels subset, single-label
+        or multilabel. `labels_subset` must be indexed into the same way
+        self.labels is (single-label: shape (n,) of class indices;
+        multilabel: shape (n, num_classes) binary matrix).
+        """
+        num_classes = len(self.label_to_idx)
+        if self.is_multilabel:
+            counts = labels_subset.sum(axis=0)
+        else:
+            counts = np.bincount(labels_subset.astype(np.int64), minlength=num_classes)
+        return {c: int(counts[c]) for c in range(num_classes)}
+
+    def compute_scored_class_truth(self, min_positives_per_class: Optional[int] = None) -> Dict:
+        """
+        Compute the organiser's macro-average AP restricted to the same class
+        set the participant's own revealed validation subset can actually
+        estimate ("active testing", v2 chunk 3).
+
+        A class is "scored" (included in class set S) if it has at least
+        `min_positives_per_class` positive instances within
+        validation_labeled_indices -- the subset the participant has revealed
+        so far via sample_validation()/add_validation_samples(). S is always a
+        subset of the classes eligible for mAP_mean (those with at least one
+        positive in the full validation pool) -- a class can only be scored
+        with revealed data if it also has full-pool support.
+
+        This is what makes the estimate-vs-truth comparison exact: the
+        participant's own estimate and mAP_theta_scored are computed over the
+        identical class set, same model, at different sample sizes (the
+        revealed subset vs. the full validation pool). mAP_mean -- the
+        existing, full-class-set organiser truth reported in train_step()'s
+        metrics dict, and the challenge's official ranking metric -- is
+        completely untouched by this method; it is read-only and does not
+        mutate any training or evaluation state.
+
+        Reuses self._last_per_class_ap (populated by train_step(), see its
+        docstring), so calling this does not trigger a second inference pass.
+        As with self._last_per_class_ap, this reflects the most recent
+        train_step() repeat only.
+
+        Args:
+            min_positives_per_class: Overrides self.min_positives_per_class
+                for this call if provided.
+
+        Returns:
+            Dict with:
+                mAP_theta_scored: organiser's macro-AP over class set S only,
+                    or None if S is empty ("unmeasured", not zero).
+                n_classes_scored: len(S)
+                n_classes_unmeasured: classes eligible for mAP_mean that did
+                    not clear the threshold (i.e. eligible-for-mAP_mean
+                    classes not in S). None specifically when NO validation
+                    has been revealed yet at all -- "nothing was dropped
+                    because nothing was looked at" -- as distinct from a
+                    real count of 0 when validation HAS been revealed but
+                    happened to clear the threshold for every eligible class,
+                    or a real positive count when validation has been
+                    revealed but some/all classes didn't clear it.
+                scored_class_indices: sorted list of class indices in S
+        """
+        threshold = min_positives_per_class if min_positives_per_class is not None else self.min_positives_per_class
+        eligible_classes = set(self._last_per_class_ap.keys())
+
+        # Nothing revealed (or nothing trained) yet -- distinct "haven't
+        # looked" state, not a count of zero-cleared classes.
+        if len(self.validation_labeled_indices) == 0 or not eligible_classes:
+            return {
+                'mAP_theta_scored': None,
+                'n_classes_scored': 0,
+                'n_classes_unmeasured': None,
+                'scored_class_indices': [],
+            }
+
+        validation_labeled_list = sorted(self.validation_labeled_indices)
+        revealed_labels = self.labels[validation_labeled_list]
+        positive_counts = self._per_class_positive_counts(revealed_labels)
+
+        scored_class_indices = sorted(
+            c for c in eligible_classes
+            if positive_counts.get(c, 0) >= threshold
+        )
+
+        if not scored_class_indices:
+            mAP_theta_scored = None
+        else:
+            mAP_theta_scored = float(np.mean([self._last_per_class_ap[c] for c in scored_class_indices]))
+
+        return {
+            'mAP_theta_scored': mAP_theta_scored,
+            'n_classes_scored': len(scored_class_indices),
+            'n_classes_unmeasured': len(eligible_classes) - len(scored_class_indices),
+            'scored_class_indices': scored_class_indices,
+        }
+
+    def _ap_per_class(self, probs: np.ndarray, labels_binary: np.ndarray,
+                      class_indices: List[int]) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Per-class AP for exactly `class_indices`, computed on the given
+        (probs, labels_binary) rows. Returns (values, counted) aligned with
+        class_indices: `counted[i]` is False (and `values[i]` left at 0.0)
+        for a class with zero positives in these specific rows -- an
+        explicit zero, not a skip, since this is also used to build
+        lcb_zero_fill, where an unmeasured class should contribute
+        exactly zero rather than being excluded from the average.
+        """
+        values = np.zeros(len(class_indices), dtype=np.float64)
+        counted = np.zeros(len(class_indices), dtype=bool)
+        for i, c in enumerate(class_indices):
+            if labels_binary[:, c].sum() > 0:
+                values[i] = average_precision_score(labels_binary[:, c], probs[:, c])
+                counted[i] = True
+        return values, counted
+
+    def _macro_ap_over_classes(self, probs: np.ndarray, labels_binary: np.ndarray,
+                               class_indices: List[int]) -> float:
+        """
+        Macro-average AP over exactly `class_indices`, computed on the given
+        (probs, labels_binary) rows. A class missing all positives in these
+        specific rows is skipped (excluded from the average, not counted as
+        zero) -- same convention train_step() already uses for the full
+        validation pool. If every class in `class_indices` is skipped,
+        returns 0.0 (matches train_step()'s try/except-with-0.0-fallback
+        convention).
+        """
+        values, counted = self._ap_per_class(probs, labels_binary, class_indices)
+        return float(values[counted].mean()) if counted.any() else 0.0
+
+    def _class_prevalence(self) -> Dict[int, float]:
+        """
+        Per-class prevalence within the revealed validation subset:
+        positive_count(c) / n_revealed, for every one of num_classes (not
+        just classes with any revealed support).
+
+        This is the expected AP of a random/uninformative classifier for
+        class c -- the chance baseline for average precision (unlike
+        ROC-AUC, whose chance baseline is a constant 0.5, AP's chance
+        baseline scales with prevalence). Used as the "no evidence, but not
+        worse than chance" floor for classes that haven't cleared
+        min_positives_per_class -- see compute_validation_estimate()'s
+        theta_coherent/lcb/ucb.
+
+        Defined even when nothing has been revealed at all
+        (validation_labeled_indices empty): every class's prevalence
+        defaults to 0.0 in that case ("we know nothing" is the most
+        conservative floor), via safe division rather than a special case.
+        """
+        num_classes = len(self.label_to_idx)
+        validation_labeled_list = sorted(self.validation_labeled_indices)
+        n_revealed = len(validation_labeled_list)
+        if n_revealed == 0:
+            return {c: 0.0 for c in range(num_classes)}
+        revealed_labels = self.labels[validation_labeled_list]
+        positive_counts = self._per_class_positive_counts(revealed_labels)
+        return {c: positive_counts.get(c, 0) / n_revealed for c in range(num_classes)}
+
+    def compute_validation_estimate(self, alpha: Optional[float] = None,
+                                    n_bootstrap: Optional[int] = None,
+                                    min_positives_per_class: Optional[int] = None,
+                                    random_state: Optional[int] = None) -> Dict:
+        """
+        The participant's own performance estimate from the revealed
+        validation subset ("active testing", v2). Framework-computed, not
+        participant code -- there is nothing for a participant to fake here,
+        only which/how many samples to reveal via
+        sample_validation()/add_validation_samples().
+
+        Two families of quantities, both returned:
+
+        SCORED-ONLY diagnostics (suffix `_scored`, or `mAP_est`/its bootstrap
+        siblings): a plug-in point estimate and percentile bootstrap interval
+        over class set S only (see compute_scored_class_truth()). Useful for
+        inspecting per-class bootstrap behaviour, but NOT comparable across
+        submissions -- two participants scoring different class sets are
+        answering different questions (mAP_theta_scored can be far above the
+        real full-task mAP if S excludes hard/rare classes). None until at
+        least one class is scored, or when the bootstrap distribution for S
+        is degenerate (see below).
+
+        FULL-TASK range-composed interval (`lcb`/`ucb`/`width`, the headline
+        numbers, comparable across submissions): built by RANGE COMPOSITION,
+        not bootstrap resampling of the full class set. Each class
+        contributes an interval to the macro average:
+          - a scored class contributes its own per-class bootstrapped
+            [class_lower, class_upper] (the percentile bounds already
+            available from the SAME bootstrap loop below, at zero extra
+            resampling cost)
+          - every other class -- unmeasured, or with no support anywhere in
+            the validation pool -- contributes [prevalence, 1.0]: prevalence
+            (see _class_prevalence()) is the "no evidence, but not worse than
+            chance" floor; 1.0 is the ceiling of AP itself, since nothing
+            rules out that class being nailed perfectly.
+        lcb/ucb are the mean of the per-class lowers/uppers over ALL
+        num_classes -- always real numbers, never None, since prevalence is
+        defined even with zero validation revealed (see _class_prevalence()).
+        This is why the "unmeasured" null state that applies to the
+        scored-only diagnostics does NOT apply here.
+
+        IMPORTANT: unmeasured classes must NOT be resampled independently per
+        bootstrap replicate. If each unmeasured class's [prevalence, 1] range
+        were instead sampled independently inside every replicate before
+        averaging, the macro-average would concentrate via the central limit
+        theorem -- manufacturing a suspiciously narrow, confident-looking
+        interval over classes that were never actually observed. Range
+        composition (combine already-summarised per-class percentiles, once,
+        arithmetically) has no such failure mode, which is why it's used here
+        instead of a literal joint bootstrap over scored + unmeasured classes.
+
+        theta_coherent: the truth this interval is checked against. Real
+        per-class AP (self._last_per_class_ap) for scored classes, prevalence
+        for every other class -- the SAME rule applied to the truth side as
+        to the estimate side, over the SAME classes. This is deliberate and
+        is NOT the same as the real, full mAP: using real per-class AP for
+        unmeasured classes on the truth side would mean a participant's
+        [prevalence, 1] claim -- the most defensible claim they can make
+        about a class they never got to observe -- could still fail to cover
+        the truth purely because of an unlucky rare class they had no
+        opportunity to measure. theta_coherent makes coverage failures only
+        possible on classes the participant actually measured, which is the
+        only thing they can fairly be held accountable for. Always a real
+        number, same reasoning as lcb/ucb.
+
+        Winkler/coverage are checked against theta_coherent, over
+        [lcb, ucb] -- always computable, no unmeasured null state.
+
+        Degenerate bootstrap guard (SCORED-ONLY fields only): if S's
+        bootstrap distribution collapses to a point (e.g. one scored class
+        with a single revealed positive), mAP_est and its bootstrap siblings
+        are None and no scored-only coverage event is recorded -- a
+        razor-thin miss on a collapsed interval would otherwise take the full
+        (2/alpha) Winkler penalty for no good reason. This does NOT propagate
+        to lcb/ucb: those are built from PER-CLASS percentiles individually,
+        so one class's degenerate contribution doesn't invalidate the
+        composition -- other classes (scored or prevalence-filled) keep the
+        full-task interval open.
+
+        NOTE on repeats: this method computes ONE repeat's estimate/interval.
+        "Repeats" here means independent ActiveLearner instances (fresh model
+        init), matching how N_REPEATS already works in
+        validation_biodcase_example.ipynb / baseline_eval.ipynb -- NOT this
+        class's own `repeats` constructor parameter, which those notebooks
+        deliberately set to 1 ("does not constitute independent
+        initialisation"). Aggregating across repeats is loop-level, mirroring
+        how mAP/AULC aggregation already happens in those notebooks'
+        aggregate_histories() -- not something this method does internally.
+
+        Args:
+            alpha: Overrides self.alpha if provided.
+            n_bootstrap: Overrides self.n_bootstrap if provided.
+            min_positives_per_class: Passed through to compute_scored_class_truth().
+            random_state: Optional seed for reproducible bootstrap resampling.
+
+        Returns:
+            Dict with everything compute_scored_class_truth() returns, plus:
+                mAP_est / lcb_scored / ucb_scored / width_scored: scored-only
+                    diagnostics, None when unmeasured or degenerate (see above)
+                theta_coherent / theta_coherent_delta: always real (delta is
+                    None only when mAP_theta_scored itself is None)
+                lcb / ucb / width: full-task range-composed interval, always real
+                winkler / covered: against theta_coherent / [lcb, ucb], always real
+                alpha / n_bootstrap: values actually used
+        """
+        alpha = alpha if alpha is not None else self.alpha
+        n_bootstrap = n_bootstrap if n_bootstrap is not None else self.n_bootstrap
+        num_classes = len(self.label_to_idx)
+
+        result = self.compute_scored_class_truth(min_positives_per_class=min_positives_per_class)
+        result['alpha'] = alpha
+        result['n_bootstrap'] = n_bootstrap
+
+        prevalence = self._class_prevalence()
+        scored_set = set(result['scored_class_indices'])
+
+        # theta_coherent: always defined -- real AP where scored, prevalence
+        # (chance baseline) everywhere else. See docstring for why this,
+        # rather than real mAP, is the truth checked against.
+        theta_coherent = float(np.mean([
+            self._last_per_class_ap[c] if c in scored_set else prevalence[c]
+            for c in range(num_classes)
+        ]))
+        result['theta_coherent'] = theta_coherent
+        result['theta_coherent_delta'] = (
+            result['mAP_theta_scored'] - theta_coherent if result['mAP_theta_scored'] is not None else None
+        )
+
+        unmeasured_scored_fields = {
+            'mAP_est': None, 'lcb_scored': None, 'ucb_scored': None, 'width_scored': None,
+        }
+
+        class_indices: List[int] = []
+        class_lower_bounds = np.array([])
+        class_upper_bounds = np.array([])
+
+        if result['mAP_theta_scored'] is None:
+            result.update(unmeasured_scored_fields)
+        else:
+            class_indices = result['scored_class_indices']
+            validation_labeled_list = sorted(self.validation_labeled_indices)
+
+            probs_all = self._predict_all()
+            if self.mc_dropout_passes > 1:
+                probs_all = probs_all.mean(axis=0)
+            probs = probs_all[validation_labeled_list]
+
+            revealed_labels = self.labels[validation_labeled_list]
+            if self.is_multilabel:
+                labels_binary = revealed_labels.astype(np.float32, copy=False)
+            else:
+                labels_binary = np.zeros((len(revealed_labels), num_classes), dtype=np.float32)
+                labels_binary[np.arange(len(revealed_labels)), revealed_labels] = 1
+
+            mAP_est = self._macro_ap_over_classes(probs, labels_binary, class_indices)
+
+            rng = np.random.default_rng(random_state)
+            n_revealed = len(validation_labeled_list)
+            bootstrap_values = np.empty(n_bootstrap, dtype=np.float64)
+            per_class_bootstrap = np.empty((n_bootstrap, len(class_indices)), dtype=np.float64)
+            for b in range(n_bootstrap):
+                resample_rows = rng.integers(0, n_revealed, size=n_revealed)
+                resampled_probs = probs[resample_rows]
+                resampled_labels = labels_binary[resample_rows]
+                per_class_values, per_class_counted = self._ap_per_class(resampled_probs, resampled_labels, class_indices)
+                per_class_bootstrap[b] = per_class_values
+                bootstrap_values[b] = float(per_class_values[per_class_counted].mean()) if per_class_counted.any() else 0.0
+
+            # Per-class percentile bounds -- used both for the scored-only
+            # diagnostics below AND for range composition into lcb/ucb.
+            class_lower_bounds = np.percentile(per_class_bootstrap, 100 * alpha / 2, axis=0)
+            class_upper_bounds = np.percentile(per_class_bootstrap, 100 * (1 - alpha / 2), axis=0)
+
+            macro_lower, macro_upper = np.percentile(bootstrap_values, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+            if np.isclose(macro_lower, macro_upper):
+                # Degenerate scored-only bootstrap -- see docstring. Does not
+                # affect lcb/ucb below (per-class, not macro).
+                result.update(unmeasured_scored_fields)
+            else:
+                result.update({
+                    'mAP_est': mAP_est,
+                    'lcb_scored': float(macro_lower),
+                    'ucb_scored': float(macro_upper),
+                    'width_scored': float(macro_upper - macro_lower),
+                })
+
+        # Full-task range composition: scored classes contribute their own
+        # per-class bootstrapped range; everything else contributes
+        # [prevalence, 1]. Always computable, never null.
+        lcb, ucb = self._range_compose(
+            class_lower_bounds, class_upper_bounds, scored_set, prevalence, num_classes,
+        )
+
+        # 0-fill companion: same idea as lcb, but unmeasured classes
+        # contribute 0 instead of prevalence -- kept as the
+        # maximally-pessimistic bound. This is a PENALTY, not a confidence
+        # bound: AP=0 for an unmeasured class asserts worse-than-random
+        # performance, which nothing here has evidence for.
+        result['lcb_zero_fill'] = float(class_lower_bounds.sum()) / num_classes
+
+        winkler, covered = self._winkler_score(lcb, ucb, theta_coherent, alpha)
+
+        result.update({
+            'lcb': lcb,
+            'ucb': ucb,
+            'width': ucb - lcb,
+            'winkler': winkler,
+            'covered': covered,
+        })
+        return result
+
+    @staticmethod
+    def _range_compose(class_lower_bounds: np.ndarray, class_upper_bounds: np.ndarray,
+                       scored_set: set, prevalence: Dict[int, float], num_classes: int) -> Tuple[float, float]:
+        """
+        Compose the full-task [lcb, ucb] interval by range composition (see
+        compute_validation_estimate()'s docstring for why this, not a joint
+        bootstrap, is used): scored classes contribute their own per-class
+        percentile bounds (class_lower_bounds/class_upper_bounds, aligned
+        with sorted(scored_set) by position); every other class contributes
+        [prevalence[c], 1.0]. Returns the mean lower and mean upper over ALL
+        num_classes.
+        """
+        lower_sum = float(np.sum(class_lower_bounds))
+        upper_sum = float(np.sum(class_upper_bounds))
+        for c in range(num_classes):
+            if c not in scored_set:
+                lower_sum += prevalence[c]
+                upper_sum += 1.0
+        return lower_sum / num_classes, upper_sum / num_classes
+
+    @staticmethod
+    def _winkler_score(lower: float, upper: float, theta: float, alpha: float) -> Tuple[float, bool]:
+        """
+        Winkler (interval) score for a (1-alpha) interval [lower, upper]
+        against the true value theta. Always pays the interval width; pays
+        an additional (2/alpha)-scaled miss penalty when theta falls outside
+        the interval. Lower is better. Returns (score, covered).
+        """
+        width = upper - lower
+        covered = lower <= theta <= upper
+        if theta < lower:
+            return width + (2.0 / alpha) * (lower - theta), covered
+        if theta > upper:
+            return width + (2.0 / alpha) * (theta - upper), covered
+        return width, covered
+
+    @staticmethod
+    def agg_mean_sd(entries: List[Dict], key: str) -> Tuple[Optional[float], Optional[float], int]:
+        """
+        Mean/SD of `key` across a list of per-repeat entries (e.g. one
+        ActiveLearner's training_history[c] per outer repeat, at the same
+        cycle c), for aggregating across N_REPEATS in a loop-level harness
+        (see validation_biodcase_example.ipynb's aggregate_histories()).
+
+        Entries where `key` is missing or None are excluded -- e.g. a repeat
+        that hasn't scored any class yet at this cycle. SD is None (not 0.0)
+        when fewer than 2 repeats have a measured value: zero variance and a
+        single observation are different states, and 0.0 misleadingly reads
+        as "perfectly reproducible" rather than "only one data point".
+
+        Args:
+            entries: per-repeat entries (dicts) at the same point in training
+            key: field to aggregate
+
+        Returns:
+            (mean, sd, n_measured) -- mean/sd are None if no entry has a
+            measured value for `key`; sd is additionally None if exactly one
+            entry does. n_measured is always a real count.
+        """
+        values = [e[key] for e in entries if e.get(key) is not None]
+        if not values:
+            return None, None, 0
+        arr = np.array(values, dtype=np.float64)
+        mean = float(np.mean(arr))
+        sd = float(np.std(arr)) if len(values) >= 2 else None
+        return mean, sd, len(values)
+
     def export(self, output_path: str,
                author_lastname: Optional[str] = None,
                institute_abbreviation: Optional[str] = None,
@@ -1220,7 +1856,7 @@ class ActiveLearner:
                         max_budget // BASELINE_BATCH_SIZE (32), giving a fair
                         cost comparison. Falls back to actual n_cycles if None.
         """
-        _STRIP = {'calibration', 'loss', 'loss_sd', 'n_unlabeled', 'repeats'}
+        _STRIP = {'calibration', 'loss', 'loss_sd', 'n_unlabeled', 'repeats', 'scored_class_indices', 'lcb_scored_zeroed'}
 
         model_parameters = int(sum(p.numel() for p in self.model.parameters()))
 

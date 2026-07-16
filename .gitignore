@@ -18,6 +18,8 @@ ATBFL_BASEAL.zip
 *.egg-info
 .claude
 nul
+__pycache__/
+*.pyc
 
 results
 test_data
