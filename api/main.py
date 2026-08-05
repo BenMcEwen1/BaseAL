@@ -20,6 +20,8 @@ matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import base64
 import io
+import time
+import wave
 
 # Add core module to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -33,6 +35,38 @@ with open(_pyproject_path, "rb") as f:
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _prewarm_librosa():
+    """
+    Pre-warm librosa.load() at startup.
+
+    librosa lazily imports its core.audio submodule (pulling in scipy.signal and
+    triggering numba JIT compilation of several gufuncs) on the first call that
+    needs it. That first-touch cost is over a second and would otherwise be paid
+    by whichever user clicks the first audio point after the server starts.
+    """
+    try:
+        logger.info("Pre-warming librosa.load (triggering lazy imports + numba JIT compilation)...")
+        start = time.time()
+
+        buf = io.BytesIO()
+        with wave.open(buf, 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(8000)
+            wf.writeframes(b'\x00\x00' * 8000)
+        buf.seek(0)
+
+        librosa.load(buf, sr=None)
+        end = time.time()
+
+        logger.info(f"librosa pre-warming completed in {end - start}")
+    except Exception as e:
+        logger.warning(f"librosa pre-warming failed (non-critical): {e}")
+
+
+_prewarm_librosa()
 
 app = FastAPI(title="BaseAL API")
 
@@ -712,16 +746,29 @@ def get_active_learning_state():
 
     return active_learner.get_state()
 
+IMAGE_MIME_TYPES = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.bmp': 'image/bmp',
+    '.webp': 'image/webp',
+}
+
+
 @app.get("/api/media")
 def get_media(index: int):
     """
-    Get audio file and its spectrogram
+    Get the media file for a dataset item.
+
+    For audio datasets this returns the audio plus a generated spectrogram.
+    For image datasets (detected by file extension) this returns the image directly.
 
     Args:
-        index: Index of the audio file in annotations (subset index if subset is applied)
+        index: Index of the file in annotations (subset index if subset is applied)
 
     Returns:
-        JSON with base64-encoded audio and spectrogram image
+        JSON with base64-encoded audio + spectrogram, or base64-encoded image
     """
     try:
         # Translate subset index to original dataset index if subset is applied
@@ -732,18 +779,28 @@ def get_media(index: int):
             # No subset, use index directly
             original_index = index
 
-        # Retrieve audio path from original index
+        # Retrieve file path from original index
         annotations = pd.read_csv(active_learner.annotations_path)
-        audio_filename = annotations['filename'][original_index]
-        path = active_learner.audio_dir / audio_filename
-        
+        media_filename = annotations['filename'][original_index]
+        path = active_learner.audio_dir / media_filename
 
-        logger.info(f"Loading audio from: {path}")
+        logger.info(f"Loading media from: {path}")
 
         # Check if file exists
         if not Path(path).exists():
-            raise HTTPException(status_code=404, detail=f"Audio file not found: {path}")
+            raise HTTPException(status_code=404, detail=f"Media file not found: {path}")
 
+        # If the dataset item is an image, return it directly without audio processing
+        file_extension = Path(path).suffix.lower()
+        if file_extension in IMAGE_MIME_TYPES:
+            with open(path, 'rb') as image_file:
+                image_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+
+            return {
+                "image": f"data:{IMAGE_MIME_TYPES[file_extension]};base64,{image_base64}"
+            }
+
+        # Otherwise treat the file as audio
         # Load audio file with librosa
         y, sr = librosa.load(path, sr=None)
 
@@ -773,7 +830,6 @@ def get_media(index: int):
             audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
 
         # Determine audio MIME type based on file extension
-        audio_extension = Path(path).suffix.lower()
         mime_types = {
             '.wav': 'audio/wav',
             '.mp3': 'audio/mpeg',
@@ -781,7 +837,7 @@ def get_media(index: int):
             '.flac': 'audio/flac',
             '.m4a': 'audio/mp4'
         }
-        audio_mime = mime_types.get(audio_extension, 'audio/wav')
+        audio_mime = mime_types.get(file_extension, 'audio/wav')
 
         return {
             "audio": f"data:{audio_mime};base64,{audio_base64}",

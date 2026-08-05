@@ -77,7 +77,7 @@ Operating at the embedding level is a deliberate trade-off: it supports the incr
 
 ## Data challenges
 
-BaseAL was designed with data challenges in mind, balancing ease of evaluation against participant freedom. For the BioDCASE Active Learning for Bioacoustics challenge, submissions were constrained to a single `sampling.py` implementing `SamplingStrategy` and `WarmupStrategy`, with full access to embeddings, predictions, metadata, and hyperparameters, while `model.py` and `active_learner.py` were withheld to prevent trivial solutions such as overparameterisation. `ValidationStrategy` (v1.2) mirrors this mechanism for the validation budget.
+BaseAL was designed with data challenges in mind, balancing ease of evaluation against participant freedom. For the BioDCASE Active Learning for Bioacoustics challenge, submissions were constrained to a single `sampling.py` implementing `SamplingStrategy` and `WarmupStrategy`, with full access to embeddings, predictions, metadata, and hyperparameters, while participants were not permitted to edit `model.py` and `active_learner.py` to prevent trivial solutions such as overparameterisation. `ValidationStrategy` (v1.2) mirrors this mechanism for the validation budget.
 
 ## Web application
 

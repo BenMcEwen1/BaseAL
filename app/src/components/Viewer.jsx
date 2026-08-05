@@ -15,7 +15,9 @@ export default function Viewer({mediaID, setID}) {
     const retrieveMedia = async () => {
         try {
             const data = await getMedia(mediaID);
-            // data contains { audio: "data:audio/...", spectrogram: "data:image/png;..." }
+            // data contains either:
+            //   { image: "data:image/...;base64,..." } for image datasets, or
+            //   { audio: "data:audio/...", spectrogram: "data:image/png;..." } for audio datasets
             setMediaData(data);
         } catch (err) {
             console.error('Failed to load data:', err);
@@ -58,6 +60,21 @@ export default function Viewer({mediaID, setID}) {
                             ✖
                         </button>
                     </div>
+
+                    {/* Image */}
+                    {mediaData.image && (
+                        <div style={{
+                            backgroundColor: '#2a2a2a',
+                            borderRadius: '8px',
+                            overflow: 'hidden'
+                        }}>
+                            <img
+                                src={mediaData.image}
+                                alt="Dataset item"
+                                style={{width: '100%', display: 'block'}}
+                            />
+                        </div>
+                    )}
 
                     {/* Spectrogram */}
                     {mediaData.spectrogram && (

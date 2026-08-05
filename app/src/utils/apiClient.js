@@ -357,7 +357,8 @@ export async function getMedia(mediaIndex) {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    // Returns JSON with { audio: "data:audio/...", spectrogram: "data:image/png;..." }
+    // Returns JSON with { image: "data:image/...;base64,..." } for image datasets,
+    // or { audio: "data:audio/...", spectrogram: "data:image/png;..." } for audio datasets
     return await response.json();
   } catch (error) {
     console.error('Error selecting media:', error);
