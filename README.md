@@ -124,10 +124,10 @@ If you use this software, please cite:
   author={McEwen, Ben and Zhang, Shiqi},
   title={{BaseAL}: Active Learning Baseline},
   year=2026,
-  version={v1.1.1},
+  version={v1.2},
   publisher={Zenodo},
-  doi={10.5281/zenodo.18467564},
-  url={https://doi.org/10.5281/zenodo.18467564}
+  doi={10.5281/zenodo.21806638},
+  url={https://doi.org/10.5281/zenodo.21806638}
 }
 ```
 
