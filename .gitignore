@@ -10,6 +10,9 @@ POW_BASEAL
 UHH_BASEAL
 BirdSet_BASEAL
 BirdSet_BASEAL_latest
+ATBFL_HELDOUT_TEST
+labels_ATBFL_HELDOUT.csv
+labels_ATBFL.csv
 ATBFL_BASEAL.zip
 *.wav
 *.npy
