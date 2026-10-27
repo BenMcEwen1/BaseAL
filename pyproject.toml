@@ -28,6 +28,9 @@ dependencies = [
 test = [
     "pytest>=7.4",
 ]
+docs = [
+    "pdoc>=15.0",
+]
 
 [tool.setuptools]
 packages = []  # No packages to include - BaseAL is a project root, not a package

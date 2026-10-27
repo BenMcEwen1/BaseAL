@@ -1,0 +1,34 @@
+# Conda environment for BaseAL (alternative to `uv sync`).
+#
+#   conda env create -f environment.yml
+#   conda activate baseal
+#
+# Compiled dependencies (PyTorch, FAISS, NumPy) come from conda-forge so they
+# share one set of native libraries. Installing them with pip on top of an
+# existing conda environment can mix incompatible builds (see issue #7), so
+# create a fresh environment rather than updating one that already has torch.
+name: baseal
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python>=3.11,<3.13
+  - pip>=23
+  - pytorch>=2.6
+  - faiss-cpu
+  - numpy>=1.24,<2.0
+  - scikit-learn>=1.7.1
+  - pandas>=2.2.3
+  - librosa>=0.10.0
+  - matplotlib>=3.7.0
+  - umap-learn
+  - pyyaml
+  - pysoundfile
+  - jupyter
+  - fastapi==0.104.1
+  - uvicorn-standard==0.24.0
+  - python-multipart==0.0.6
+  - pytest>=7.4
+  - pip:
+      # Not packaged on conda-forge. 1.x requires numpy>=2, so stay on 0.x.
+      - scikit-activeml>=0.6.2,<1.0

@@ -1,0 +1,14 @@
+name: Question
+description: Ask for help using BaseAL
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: Please check the notebooks in core/docs/ and the API reference (https://benmcewen1.github.io/BaseAL/) first.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What are you trying to do, and what have you tried so far?
+    validations:
+      required: true

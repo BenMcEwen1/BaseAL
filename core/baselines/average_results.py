@@ -95,6 +95,7 @@ def get_relative_cost(data: dict) -> float | None:
 
 
 def print_cycle_row(row: dict, keys: list[str]) -> None:
+    """Print one cycle's metrics as a fixed-width table row, in the order of ``keys``."""
     vals = "  ".join(f"{row.get(k, float('nan')):>12.5f}" for k in keys)
     print(f"  {row['cycle']:>5}  {vals}")
 
@@ -152,6 +153,7 @@ def print_leaderboard(all_data: dict, budget: int) -> None:
 
 
 def main() -> None:
+    """Command-line entry point. Run with ``--help`` for the available options."""
     parser = argparse.ArgumentParser(description="Average active learning results across datasets.")
     parser.add_argument("--method", required=True, help="Sampling method prefix, e.g. margin_multilabel")
     parser.add_argument("--cycle", type=int, default=None, help="Show only this cycle number (1-indexed)")

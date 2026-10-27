@@ -1,0 +1,60 @@
+name: API docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # pyproject.toml pins tool.uv.required-environments to win32, so the
+    # lockfile is only guaranteed resolvable on Windows.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Sync dependencies (core + docs extra)
+        run: uv sync --extra docs
+
+      # core/__init__.py sets __all__, which hides submodules from pdoc, so
+      # they are listed explicitly.
+      - name: Build API reference
+        run: uv run pdoc core core.active_learner core.utils api.main -d google -o site
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-docs
+          path: site
+
+  deploy:
+    # Publishing needs GitHub Pages enabled with "GitHub Actions" as the source
+    # (Settings > Pages).
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-docs
+          path: site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
