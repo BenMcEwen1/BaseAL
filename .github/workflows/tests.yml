@@ -30,3 +30,28 @@ jobs:
 
       - name: Run test suite
         run: uv run pytest -v
+
+  conda:
+    # Checks the conda route in environment.yml (issue #7), which resolves
+    # independently of uv.lock.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create conda environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment.yml
+          activate-environment: baseal
+          miniforge-version: latest
+
+      - name: Run test suite
+        run: python -m pytest -v
