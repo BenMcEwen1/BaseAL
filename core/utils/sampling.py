@@ -14,6 +14,30 @@ logger = logging.getLogger(__name__)
 
 
 def densityEstimation(embeddings: Optional[np.ndarray] = None, method='cosine', beta: int = 1, k: int = 20):
+    """
+    Score each embedding by how densely populated its neighbourhood is.
+
+    Scores are summed pairwise scores, normalised so the maximum is 1, then
+    raised to the power ``beta``.
+
+    Args:
+        embeddings: Embedding matrix of shape ``(n_samples, dim)``.
+        method: Pairwise score to sum:
+
+            - ``'cosine'``: cosine similarity to every other sample (higher = denser).
+            - ``'knn'``: inverse distance to the ``k`` nearest neighbours (higher = denser).
+            - ``'euclidean'``: Euclidean distance to every other sample. Note that
+              this sums distances, so higher scores mean more *isolated* samples.
+        beta: Exponent applied to the normalised scores. Values above 1 sharpen
+            the contrast between dense and sparse regions.
+        k: Number of neighbours used by the ``'knn'`` method.
+
+    Returns:
+        Array of shape ``(n_samples,)`` with scores in ``[0, 1]``.
+
+    Raises:
+        Exception: If ``method`` is not one of the values above.
+    """
     if method == 'cosine':
         similarity = cosine_similarity(embeddings)
     elif method == 'euclidean':

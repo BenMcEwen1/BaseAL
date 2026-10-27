@@ -37,6 +37,15 @@ COLOR_WHEEL_OFFSET = 0.0
 
 @dataclass(frozen=True, slots=True)
 class ResolvedDataset:
+    """
+    Locations of the files that make up one BaseAL dataset/model pair.
+
+    Attributes:
+        dataset_path: Dataset root directory.
+        labels_path: Path to the dataset's ``labels.csv``.
+        embeddings_dir: The single model directory under ``embeddings/``.
+        model_name: Name of the embedding model (the name of ``embeddings_dir``).
+    """
     dataset_path: Path
     labels_path: Path
     embeddings_dir: Path
@@ -45,6 +54,25 @@ class ResolvedDataset:
 
 @dataclass(frozen=True, slots=True)
 class PreparedVisualizationData:
+    """
+    Embeddings and labels for the selected samples, before dimensionality reduction.
+
+    Attributes:
+        idxes: 0-based ``labels.csv`` row indices of the selected samples.
+        embeddings: Embedding matrix for the selected samples, shape ``(n, dim)``.
+        all_embedding_names: Embedding file name for every row of ``labels.csv``.
+        labels: Integer class indices, shape ``(n,)``, for multi-class data, or a
+            multi-hot matrix, shape ``(n, n_classes)``, for multi-label data.
+        label_names: Human-readable label per sample (``;``-joined when multi-label).
+        label_indices_for_color: One class index per sample used to colour the plot.
+            For multi-label samples this is the first active class.
+        class_names: Sorted class names; positions match the label indices.
+        annotations: ``labels.csv`` rows for the selected samples.
+        is_multilabel: Whether any label in ``labels.csv`` contains ``;``.
+        model_name: Name of the embedding model.
+        dataset_path: Dataset root directory.
+        embeddings_dir: Directory the embeddings were loaded from.
+    """
     idxes: np.ndarray
     embeddings: np.ndarray
     all_embedding_names: np.ndarray
@@ -61,6 +89,31 @@ class PreparedVisualizationData:
 
 @dataclass(frozen=True, slots=True)
 class VisualizationResult:
+    """
+    Output of :func:`visualize_embeddings`.
+
+    Holds the matplotlib figure together with the data that was plotted, so the
+    plot can be restyled or the 2D coordinates reused without recomputing them.
+
+    Attributes:
+        figure: Matplotlib figure containing the scatter plot.
+        axes: Axes the points were drawn on.
+        idxes: 0-based ``labels.csv`` row indices of the plotted samples.
+        coordinates: 2D coordinates of the plotted samples, shape ``(n, 2)``.
+        embeddings: Original embeddings of the plotted samples, shape ``(n, dim)``.
+        labels: Integer class indices, shape ``(n,)``, for multi-class data, or a
+            multi-hot matrix, shape ``(n, n_classes)``, for multi-label data.
+        label_names: Human-readable label per sample (``;``-joined when multi-label).
+        label_indices_for_color: Class index used to colour each point.
+        class_names: Sorted class names; positions match the label indices.
+        annotations: ``labels.csv`` rows for the plotted samples.
+        is_multilabel: Whether the dataset is multi-label.
+        dataset_path: Dataset root directory.
+        embeddings_dir: Directory the embeddings were loaded from.
+        model_name: Name of the embedding model.
+        reduction_steps: Reduction pipeline applied, in order, e.g.
+            ``("StandardScaler", "PCA(64)", "UMAP(2)")``.
+    """
     figure: Figure
     axes: Axes
     idxes: np.ndarray
