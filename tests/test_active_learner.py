@@ -1,5 +1,5 @@
 """
-Tests for core/active_learner.py (ActiveLearner).
+Tests for baseal/active_learner.py (ActiveLearner).
 
 Uses the real ESC10 demo dataset shipped in-repo (`real_esc10` fixture:
 800 samples, 10 classes, 1024-d BirdNet embeddings, real 640/160
@@ -13,7 +13,7 @@ import pytest
 import torch
 import yaml
 
-from core.active_learner import ActiveLearner
+from baseal.active_learner import ActiveLearner
 
 
 def build_learner(dataset, **overrides):
@@ -230,7 +230,7 @@ def test_compute_aulc_matches_manual_trapezoid():
         {"n_labeled": 20, "mAP": 0.4},
         {"n_labeled": 30, "mAP": 0.6},
     ]
-    expected = float(np.trapz([0, 0.2, 0.4, 0.6], [0, 10, 20, 30]) / 30)
+    expected = (0.1 * 10 + 0.3 * 10 + 0.5 * 10) / 30  # trapezoid rule by hand
     assert learner.compute_aulc("mAP") == pytest.approx(expected)
 
 

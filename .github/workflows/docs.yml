@@ -24,10 +24,10 @@ jobs:
       - name: Sync dependencies (core + docs extra)
         run: uv sync --extra docs
 
-      # core/__init__.py sets __all__, which hides submodules from pdoc, so
+      # baseal/__init__.py sets __all__, which hides submodules from pdoc, so
       # they are listed explicitly.
       - name: Build API reference
-        run: uv run pdoc core core.active_learner core.utils api.main -d google -o site
+        run: uv run pdoc baseal baseal.active_learner baseal.utils baseal.api.main -d google -o site
 
       - uses: actions/upload-artifact@v4
         with:

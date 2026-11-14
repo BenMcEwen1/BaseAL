@@ -11,8 +11,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from starlette.middleware.cors import CORSMiddleware
 
-# Import the FastAPI app from api module
-from api.main import app
+# Import the FastAPI app from the baseal package
+from baseal.api.main import app, set_project_root
+
+# This entry point lives at the repository root, so resolve the demo data and
+# config relative to it (unless BASEAL_ROOT says otherwise).
+if "BASEAL_ROOT" not in os.environ:
+    set_project_root(Path(__file__).parent)
 
 # Update CORS for production (allow HF Spaces domain)
 # Remove existing CORS middleware and add new one
@@ -105,7 +110,7 @@ if FRONTEND_BUILD_DIR.exists():
     # Mount static assets (js, css, etc.)
     app.mount("/assets", StaticFiles(directory=FRONTEND_BUILD_DIR / "assets"), name="assets")
 
-    # Remove the existing root route from api/main.py and replace with frontend
+    # Remove the existing root route from baseal/api/main.py and replace with frontend
     # Find and remove the existing "/" route
     app.routes[:] = [route for route in app.routes if not (hasattr(route, 'path') and route.path == "/")]
 

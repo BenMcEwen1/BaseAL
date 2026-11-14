@@ -1,17 +1,26 @@
 """
 FastAPI application for serving embeddings data and active learning
 """
+try:
+    import fastapi  # noqa: F401
+    import librosa  # noqa: F401
+except ImportError as e:
+    raise ImportError(
+        f"The BaseAL API server needs extra dependencies ({e.name} is missing). "
+        "Install them with: pip install 'baseal[api]' (or `uv sync` in the repository)."
+    ) from e
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
-import tomllib
+import argparse
+import os
 import numpy as np
 from typing import List, Dict, Any, Optional
 import logging
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-import sys
 import pandas as pd
 import librosa
 import librosa.display
@@ -23,14 +32,10 @@ import io
 import time
 import wave
 
-# Add core module to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from core.active_learner import ActiveLearner, Manager
+import baseal
+from baseal.active_learner import ActiveLearner, Manager
 
-# Read version from pyproject.toml (single source of truth)
-_pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
-with open(_pyproject_path, "rb") as f:
-    __version__ = tomllib.load(f)["project"]["version"]
+__version__ = baseal.__version__
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -79,11 +84,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Base paths
-BASE_DIR = Path(__file__).parent.parent
-AUDIO_BASE_PATH = BASE_DIR / "ESC10_BASEAL" / "data"
-EMBEDDINGS_BASE_PATH = BASE_DIR / "ESC10_BASEAL" / "embeddings"
-ANNOTATIONS_BASE_PATH = BASE_DIR / "ESC10_BASEAL"
+# Base paths. Datasets, configs and saved results are resolved relative to the
+# project root: the BASEAL_ROOT environment variable if set, otherwise the
+# directory the server is started from (`baseal-api --root` overrides both).
+def set_project_root(root: Path) -> None:
+    """
+    Set the project root that dataset, config and output paths resolve against.
+
+    Args:
+        root: Directory containing the `{dataset}_BASEAL` folders and config.
+    """
+    global BASE_DIR, AUDIO_BASE_PATH, EMBEDDINGS_BASE_PATH, ANNOTATIONS_BASE_PATH
+    BASE_DIR = Path(root).resolve()
+    AUDIO_BASE_PATH = BASE_DIR / "ESC10_BASEAL" / "data"
+    EMBEDDINGS_BASE_PATH = BASE_DIR / "ESC10_BASEAL" / "embeddings"
+    ANNOTATIONS_BASE_PATH = BASE_DIR / "ESC10_BASEAL"
+
+
+set_project_root(os.environ.get("BASEAL_ROOT", Path.cwd()))
 
 # Global active learner instance (for backward compatibility with single experiment)
 active_learner: Optional[ActiveLearner] = None
@@ -287,7 +305,7 @@ def get_embeddings_3d(model_name: str, dataset_name: str):
 # ==================== Manager Endpoints ====================
 
 @app.post("/api/manager/initialize")
-def initialize_manager(config_path: str = "core/config.yml"):
+def initialize_manager(config_path: str = "baseal/config.yml"):
     """
     Initialize the Manager with a config file
 
@@ -850,6 +868,29 @@ def get_media(index: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-if __name__ == "__main__":
+def main(argv: Optional[List[str]] = None):
+    """
+    Run the API server (the `baseal-api` command).
+
+    Args:
+        argv: Command-line arguments (defaults to sys.argv[1:]). Supports
+            --host, --port and --root (the project root that dataset and config
+            paths are resolved against; defaults to the current directory).
+    """
+    parser = argparse.ArgumentParser(prog="baseal-api", description="Run the BaseAL API server.")
+    parser.add_argument("--host", default="0.0.0.0", help="Interface to bind (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=8000, help="Port to listen on (default: 8000)")
+    parser.add_argument("--root", type=Path, default=None,
+                        help="Project root containing the datasets and config (default: current directory)")
+    args = parser.parse_args(argv)
+
+    if args.root is not None:
+        set_project_root(args.root)
+    logger.info(f"Project root: {BASE_DIR}")
+
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=args.host, port=args.port)
+
+
+if __name__ == "__main__":
+    main()

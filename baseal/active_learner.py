@@ -17,7 +17,8 @@ import yaml
 import json
 import copy
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import multiprocessing
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import f1_score, average_precision_score
@@ -37,6 +38,9 @@ from .utils.model import EmbeddingClassifier
 
 logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# np.trapz was renamed np.trapezoid in NumPy 2.0 and later removed.
+_trapezoid = getattr(np, "trapezoid", None) or np.trapz
 
 
 # Pre-warm UMAP at module import time to trigger numba JIT compilation
@@ -67,8 +71,60 @@ def _prewarm_umap_module():
         logger.warning(f"UMAP pre-warming failed (non-critical): {e}")
 
 
-# Execute pre-warming immediately at module import
-_prewarm_umap_module()
+# Execute pre-warming immediately at module import. Skipped in worker processes
+# started by Manager.run(backend="process"): they never project embeddings, and
+# paying the JIT cost in every worker would eat into any speed-up.
+if multiprocessing.parent_process() is None:
+    _prewarm_umap_module()
+
+
+def _run_cycle(learner: 'ActiveLearner', n_samples: int, epochs: int, batch_size: int) -> Dict:
+    """
+    Run one AL cycle (sample, label, train) for a single learner, in place.
+
+    Args:
+        learner: ActiveLearner instance (modified in place)
+        n_samples: Number of samples to select
+        epochs: Number of training epochs
+        batch_size: Training batch size
+
+    Returns:
+        Training metrics dictionary
+    """
+    # Sample new data points
+    selected_indices = learner.sample(n_samples)
+
+    if len(selected_indices) > 0:
+        # Add selected samples to labeled set
+        learner.add_samples(selected_indices)
+
+        # Train on updated labeled set
+        return learner.train_step(epochs=epochs, batch_size=batch_size)
+
+    # No samples to add, just return current state
+    return {
+        "loss": 0.0,
+        "accuracy": 0.0,
+        "n_labeled": len(learner.labeled_indices),
+        "n_unlabeled": len(learner.unlabeled_indices)
+    }
+
+
+def _run_cycle_in_worker(learner: 'ActiveLearner', n_samples: int, epochs: int,
+                         batch_size: int) -> Tuple[Dict, 'ActiveLearner']:
+    """
+    Process-pool entry point for `_run_cycle`.
+
+    The worker receives a pickled copy of the learner, so the updated learner
+    is returned alongside the metrics for the Manager to swap back in.
+    """
+    metrics = _run_cycle(learner, n_samples, epochs, batch_size)
+    return metrics, learner
+
+
+def _init_worker(torch_threads: int) -> None:
+    """Limit PyTorch's intra-op threads so worker processes don't oversubscribe the CPU."""
+    torch.set_num_threads(torch_threads)
 
 
 class Manager:
@@ -88,13 +144,15 @@ class Manager:
         self.verbose = verbose
         if not verbose:
             logger.setLevel(logging.WARNING)
-            logging.getLogger("core.utils.sampling").setLevel(logging.WARNING)
+            logging.getLogger("baseal.utils.sampling").setLevel(logging.WARNING)
 
         self.config_path = Path(config_path)
         self.base_dir = Path(base_dir) if base_dir else self.config_path.parent
         self.configs = self._load_configs(self.config_path)
         self.experiments = []
         self.experiment_names = []
+        self._process_pool: Optional[ProcessPoolExecutor] = None
+        self._process_pool_workers: Optional[int] = None
         self.__initialize_experiments()
         logger.info(f"Manager initialized with {len(self.experiments)} experiments")
 
@@ -162,7 +220,9 @@ class Manager:
             n_samples: int = 5,
             epochs: int = 5,
             batch_size: int = 8,
-            parallel: bool = False) -> Dict[str, Dict]:
+            parallel: bool = False,
+            backend: str = "thread",
+            max_workers: Optional[int] = None) -> Dict[str, Dict]:
         """
         Run one complete AL cycle for all experiments
 
@@ -171,19 +231,57 @@ class Manager:
             epochs: Number of training epochs
             batch_size: Training batch size
             parallel: Whether to run experiments in parallel
+            backend: How to parallelise when `parallel=True`:
+                - "thread" (default): a thread pool. Cheap to start and shares
+                  memory with the caller. PyTorch and NumPy release the GIL
+                  inside their kernels, but the Python-level training loop
+                  does not, so threads overlap only part of the work.
+                - "process": a process pool, one experiment per process, which
+                  sidesteps the GIL. Every cycle pickles each learner (its
+                  embeddings, model and optimiser) to a worker and back. The
+                  pool starts on first use and is reused by later calls;
+                  release it with `close()` or by using the Manager as a
+                  context manager. It pays off when each cycle does
+                  substantial training (large labelled sets, many epochs, or
+                  a hidden layer); for small cycles the copying costs more
+                  than it saves. Scripts using it on Windows or macOS need an
+                  `if __name__ == "__main__":` guard.
+            max_workers: Maximum number of parallel workers (default: one per
+                experiment, capped at the CPU count for the process backend)
 
         Returns:
             Dictionary mapping experiment names to their training metrics
         """
-        logger.info(f"Starting AL cycle: {n_samples} samples, {epochs} epochs, parallel={parallel}")
+        if backend not in ("thread", "process"):
+            raise ValueError(f"backend must be 'thread' or 'process', got {backend!r}")
+
+        mode = backend if parallel else "sequential"
+        logger.info(f"Starting AL cycle: {n_samples} samples, {epochs} epochs, mode={mode}")
 
         results = {}
 
-        if parallel:
-            # Run experiments in parallel using ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=len(self.experiments)) as executor:
+        if parallel and backend == "process":
+            executor = self._get_process_pool(max_workers)
+            future_to_index = {
+                executor.submit(_run_cycle_in_worker, learner, n_samples, epochs, batch_size): i
+                for i, learner in enumerate(self.experiments)
+            }
+            for future in as_completed(future_to_index):
+                i = future_to_index[future]
+                exp_name = self.experiment_names[i]
+                try:
+                    metrics, updated_learner = future.result()
+                    # The worker trained a copy; adopt it so state carries over.
+                    self.experiments[i] = updated_learner
+                    results[exp_name] = metrics
+                    logger.info(f"Experiment '{exp_name}' completed: {metrics}")
+                except Exception as e:
+                    logger.error(f"Experiment '{exp_name}' failed: {e}")
+                    results[exp_name] = {"error": str(e)}
+        elif parallel:
+            with ThreadPoolExecutor(max_workers=max_workers or len(self.experiments)) as executor:
                 future_to_name = {
-                    executor.submit(self._run_single_experiment, learner, n_samples, epochs, batch_size): name
+                    executor.submit(_run_cycle, learner, n_samples, epochs, batch_size): name
                     for learner, name in zip(self.experiments, self.experiment_names)
                 }
 
@@ -200,7 +298,7 @@ class Manager:
             # Run experiments sequentially
             for learner, exp_name in zip(self.experiments, self.experiment_names):
                 try:
-                    metrics = self._run_single_experiment(learner, n_samples, epochs, batch_size)
+                    metrics = _run_cycle(learner, n_samples, epochs, batch_size)
                     results[exp_name] = metrics
                     logger.info(f"Experiment '{exp_name}' completed: {metrics}")
                 except Exception as e:
@@ -209,13 +307,55 @@ class Manager:
 
         return results
 
+    def _get_process_pool(self, max_workers: Optional[int] = None) -> ProcessPoolExecutor:
+        """
+        Return the Manager's process pool, starting it on first use.
+
+        Workers use the "spawn" start method on every platform (forking a
+        process that has already started PyTorch's thread pool can deadlock),
+        and the CPU's threads are divided between them to avoid oversubscription.
+        """
+        workers = max_workers or min(len(self.experiments), os.cpu_count() or 1)
+        if self._process_pool is not None and self._process_pool_workers != workers:
+            self.close()
+        if self._process_pool is None:
+            torch_threads = max(1, (os.cpu_count() or 1) // workers)
+            self._process_pool = ProcessPoolExecutor(
+                max_workers=workers,
+                mp_context=multiprocessing.get_context("spawn"),
+                initializer=_init_worker,
+                initargs=(torch_threads,),
+            )
+            self._process_pool_workers = workers
+        return self._process_pool
+
+    def close(self):
+        """Shut down the process pool started by `run(backend="process")`, if any."""
+        if self._process_pool is not None:
+            self._process_pool.shutdown()
+            self._process_pool = None
+            self._process_pool_workers = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def __getstate__(self):
+        # A process pool can't be pickled (e.g. when a Manager is deep-copied).
+        state = self.__dict__.copy()
+        state['_process_pool'] = None
+        state['_process_pool_workers'] = None
+        return state
+
     def _run_single_experiment(self,
                                learner: 'ActiveLearner',
                                n_samples: int,
                                epochs: int,
                                batch_size: int) -> Dict:
         """
-        Run one AL cycle for a single experiment
+        Run one AL cycle for a single experiment (in place)
 
         Args:
             learner: ActiveLearner instance
@@ -226,25 +366,7 @@ class Manager:
         Returns:
             Training metrics dictionary
         """
-        # Sample new data points
-        selected_indices = learner.sample(n_samples)
-
-        if len(selected_indices) > 0:
-            # Add selected samples to labeled set
-            learner.add_samples(selected_indices)
-
-            # Train on updated labeled set
-            metrics = learner.train_step(epochs=epochs, batch_size=batch_size)
-        else:
-            # No samples to add, just return current state
-            metrics = {
-                "loss": 0.0,
-                "accuracy": 0.0,
-                "n_labeled": len(learner.labeled_indices),
-                "n_unlabeled": len(learner.unlabeled_indices)
-            }
-
-        return metrics
+        return _run_cycle(learner, n_samples, epochs, batch_size)
 
     def add(self, new_config: Dict, name: Optional[str] = None):
         """
@@ -438,7 +560,7 @@ class ActiveLearner:
         """
         if not verbose:
             logger.setLevel(logging.WARNING)
-            logging.getLogger("core.utils.sampling").setLevel(logging.WARNING)
+            logging.getLogger("baseal.utils.sampling").setLevel(logging.WARNING)
 
         self.embeddings_dir = embeddings_dir
         self.annotations_path = annotations_path
@@ -1392,7 +1514,7 @@ class ActiveLearner:
         x_range   = n_labeled[-1] - n_labeled[0]
         if x_range == 0:
             return 0.0
-        return float(np.trapz(values, n_labeled) / x_range)
+        return float(_trapezoid(values, n_labeled) / x_range)
 
     def _per_class_positive_counts(self, labels_subset: np.ndarray) -> Dict[int, int]:
         """

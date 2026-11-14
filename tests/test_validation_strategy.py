@@ -1,5 +1,5 @@
 """
-Tests for core/utils/sampling.py (ValidationStrategy).
+Tests for baseal/utils/sampling.py (ValidationStrategy).
 
 Mirrors tests/test_sampling.py's structure for SamplingStrategy -- small,
 hand-constructed inputs for the class-level unit tests (exact ground truth by
@@ -11,7 +11,7 @@ tests/test_active_learner.py.
 import numpy as np
 import pytest
 
-from core.utils.sampling import ValidationStrategy
+from baseal.utils.sampling import ValidationStrategy
 
 
 def test_unknown_method_raises():

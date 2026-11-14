@@ -4,7 +4,7 @@ Thanks for your interest in BaseAL. This page explains how to get help, how to r
 
 ## Getting support
 
-- **Questions about using BaseAL**: first check the [notebooks in `core/docs/`](core/docs/) and the [API reference](https://benmcewen1.github.io/BaseAL/). If they don't answer it, [open an issue](https://github.com/BenMcEwen1/BaseAL/issues/new/choose) using the **Question** template.
+- **Questions about using BaseAL**: first check the [notebooks in `baseal/docs/`](baseal/docs/) and the [API reference](https://benmcewen1.github.io/BaseAL/). If they don't answer it, [open an issue](https://github.com/BenMcEwen1/BaseAL/issues/new/choose) using the **Question** template.
 - **Private enquiries** (for example collaboration, or for questions not applicable to other users of BaseAL): email [Ben McEwen](mailto:benmcewen@outlook.com).
 
 ## Reporting a problem
@@ -16,7 +16,7 @@ Then [open a new issue](https://github.com/BenMcEwen1/BaseAL/issues/new/choose) 
 - What you ran (code, notebook cell or command) and what you expected to happen
 - The full error message or traceback
 - Your operating system, Python version, and how you installed BaseAL (`uv sync`, conda, or the Docker/Apptainer image)
-- The BaseAL version (`version` in [pyproject.toml](pyproject.toml)) or the commit you're on
+- The BaseAL version (`python -c "import baseal; print(baseal.__version__)"`) or the commit you're on
 - The dataset you used, if the problem depends on it
 
 For problems with the web app, also include your Node.js version (`node --version`) and any errors from the browser console.
@@ -50,8 +50,9 @@ Bug fixes, new sampling strategies, documentation and example notebooks are all 
 
 - **Follow the existing style.** Write Google-style docstrings (`Args:`, `Returns:`, `Raises:`) for public classes and functions; the [API reference](https://benmcewen1.github.io/BaseAL/) is generated from them.
 - **Add tests.** New behaviour should come with tests in [`tests/`](tests/). The tests use small synthetic datasets built in [`tests/conftest.py`](tests/conftest.py), so no data download is needed.
-- **New sampling strategies** go in [`core/utils/sampling.py`](core/utils/sampling.py). Add a test to [`tests/test_sampling.py`](tests/test_sampling.py), and ideally an example to the notebooks.
+- **New sampling strategies** go in [`baseal/utils/sampling.py`](baseal/utils/sampling.py). Add a test to [`tests/test_sampling.py`](tests/test_sampling.py), and ideally an example to the notebooks.
 - **Web app changes** (in `app/`) should build cleanly with `npm run build`.
+- **Releases**: the version lives only in `__version__` in [`baseal/__init__.py`](baseal/__init__.py). `pyproject.toml` and the web app both read it from there. After changing it, run `uv sync --reinstall-package baseal` so the installed metadata picks up the new version (plain `uv sync` doesn't rebuild for a version-only change).
 
 ### 3. Check your change
 
@@ -64,7 +65,7 @@ uv run pytest -v
 If you changed docstrings, check that the API reference builds and renders as you expect:
 
 ```bash
-uv run pdoc core core.active_learner core.utils api.main -d google
+uv run pdoc baseal baseal.active_learner baseal.utils baseal.api.main -d google
 ```
 
 This opens a live preview in your browser.

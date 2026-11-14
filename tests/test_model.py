@@ -1,7 +1,7 @@
-"""Tests for core/utils/model.py (EmbeddingClassifier)."""
+"""Tests for baseal/utils/model.py (EmbeddingClassifier)."""
 import torch
 
-from core.utils.model import EmbeddingClassifier
+from baseal.utils.model import EmbeddingClassifier
 
 
 def test_default_hidden_dim_matches_input_dim():

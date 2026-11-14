@@ -1,5 +1,5 @@
 """
-Tests for core/utils/visualization.py (visualize_embeddings).
+Tests for baseal/utils/visualization.py (visualize_embeddings).
 
 Happy-path tests use the real ESC10 demo dataset (`real_esc10` fixture).
 Error-path, degenerate-input, and multilabel-specific tests stay on
@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from core.utils.visualization import visualize_embeddings
+from baseal.utils.visualization import visualize_embeddings
 
 
 def test_visualize_embeddings_basic_shapes(real_esc10):
