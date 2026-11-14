@@ -54,28 +54,58 @@ cd BaseAL
 uv sync
 ```
 
-This creates a `.venv` folder with the exact dependency versions recorded in [uv.lock](uv.lock). Activate it with `source .venv/bin/activate` (macOS/Linux) or `.venv\Scripts\activate` (Windows), or select it as the interpreter in VS Code (`Ctrl + Shift + P` → *Python: Select Interpreter*). Alternatively, prefix commands with `uv run` (for example `uv run jupyter lab`) and skip activation.
+This creates a `.venv` folder with the exact dependency versions recorded in [uv.lock](uv.lock) and installs BaseAL into it as an editable package, so `import baseal` works from any notebook or script while changes you make in the repository (for example a new sampling strategy) take effect immediately. Activate it with `source .venv/bin/activate` (macOS/Linux) or `.venv\Scripts\activate` (Windows), or select it as the interpreter in VS Code (`Ctrl + Shift + P` → *Python: Select Interpreter*). Alternatively, prefix commands with `uv run` (for example `uv run jupyter lab`) and skip activation.
 
-See the **Dependencies** list in [pyproject.toml](pyproject.toml).
+See the **Dependencies** list in [pyproject.toml](pyproject.toml). In this repository `uv sync` installs everything, including the web app server and Jupyter.
+
+#### Using BaseAL from another project
+
+To use BaseAL as a library in your own repository rather than working inside this one, install it straight from GitHub:
+
+```bash
+uv pip install git+https://github.com/BenMcEwen1/BaseAL   # or: pip install git+https://github.com/BenMcEwen1/BaseAL
+```
+
+```python
+import baseal
+from baseal import ActiveLearner, Manager
+
+print(baseal.__version__)
+```
+
+This installs only the `baseal` Python package. The notebooks, demo dataset and baseline results stay in this repository, so clone it if you want those.
+
+The dependencies have lower bounds only (no upper caps), and BaseAL works with NumPy 1.26 and 2.x. The web app server and Jupyter are optional extras:
+
+| Install | Adds |
+|---|---|
+| `baseal` | the library: `ActiveLearner`, `Manager`, sampling, warm-up and validation strategies |
+| `baseal[api]` | the `baseal-api` web app server (FastAPI, uvicorn, librosa) |
+| `baseal[notebooks]` | Jupyter, for the example notebooks |
+
+For example `pip install "baseal[api] @ git+https://github.com/BenMcEwen1/BaseAL"`. Importing only the sampling strategies (`from baseal.utils.sampling import SamplingStrategy`) doesn't load PyTorch.
 
 #### Option B: conda
 
 ```bash
 conda env create -f environment.yml
 conda activate baseal
+pip install --no-deps -e .
 ```
+
+The last line installs BaseAL itself as an editable package. `--no-deps` stops pip from replacing the conda-forge builds of its dependencies.
 
 [environment.yml](environment.yml) installs PyTorch, FAISS and NumPy from conda-forge so that they share compatible native libraries. Create a **new** environment rather than installing into an existing one: installing BaseAL's dependencies with pip into a conda environment that already contains PyTorch or torchaudio can mix incompatible builds and cause import errors (see [#7](https://github.com/BenMcEwen1/BaseAL/issues/7)).
 
 ### Get Started
 
-See the [docs](core/docs/) to get started working with the BaseAL framework, and developing active learning sampling strategies.
+See the [docs](baseal/docs/) to get started working with the BaseAL framework, and developing active learning sampling strategies.
 
 The **[API reference](https://benmcewen1.github.io/BaseAL/)** documents the public classes and functions (`ActiveLearner`, `Manager`, the sampling, warm-up and validation strategies, and the visualisation utilities), including their parameters and return values. It is generated from the docstrings with [pdoc](https://pdoc.dev/). To build and preview it locally:
 
 ```bash
 uv sync --extra docs
-uv run pdoc core core.active_learner core.utils api.main -d google
+uv run pdoc baseal baseal.active_learner baseal.utils baseal.api.main -d google
 ```
 
 ### Running Tests
@@ -87,9 +117,9 @@ uv run pytest -v
 
 With conda, run `python -m pytest -v` inside the activated `baseal` environment (pytest is included in `environment.yml`).
 
-Tests run against small synthetic embedding datasets generated on the fly (no demo data download required) and cover the sampling strategies, warm-up strategies, the neural network model, the `ActiveLearner`/`Manager` pipeline, and the embedding visualisation utilities in `core/`.
+Tests run against small synthetic embedding datasets generated on the fly (no demo data download required) and cover the sampling strategies, warm-up strategies, the neural network model, the `ActiveLearner`/`Manager` pipeline, and the embedding visualisation utilities in `baseal/`.
 
-If you are a participating in the BioDCASE data challenge, an `biodcase_example.ipynb` is setup [here](core/docs/biodcase_example.ipynb) with everything needed to get started.
+If you are a participating in the BioDCASE data challenge, an `biodcase_example.ipynb` is setup [here](baseal/docs/biodcase_example.ipynb) with everything needed to get started.
 
 ---
 
@@ -113,11 +143,12 @@ cd ..
 From the repository root, with the Python environment activated:
 
 ```bash
-cd api
-python main.py
+baseal-api
 ```
 
-(Without activating the environment, use `uv run python main.py` instead of `python main.py`.)
+(Without activating the environment, use `uv run baseal-api`.)
+
+Dataset and config paths are resolved relative to the directory you start the server from. To start it elsewhere, point it at the repository (or any folder holding your `{dataset}_BASEAL` datasets) with `baseal-api --root path/to/BaseAL`. `baseal-api --help` lists the other options (`--host`, `--port`).
 
 The API will be available at `http://localhost:8000`
 
@@ -177,7 +208,7 @@ If you use this software, please cite:
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for how to:
 
-- **get support**: check the [docs](core/docs/) and [API reference](https://benmcewen1.github.io/BaseAL/), then [open a Question issue](https://github.com/BenMcEwen1/BaseAL/issues/new/choose); for private enquiries, email [Ben McEwen](mailto:benmcewen@outlook.com)
+- **get support**: check the [docs](baseal/docs/) and [API reference](https://benmcewen1.github.io/BaseAL/), then [open a Question issue](https://github.com/BenMcEwen1/BaseAL/issues/new/choose); for private enquiries, email [Ben McEwen](mailto:benmcewen@outlook.com)
 - **report a problem**: [open a Bug report issue](https://github.com/BenMcEwen1/BaseAL/issues/new/choose)
 - **contribute code or documentation**: fork the repository, make your change on a branch with tests, and open a pull request
 

@@ -1,30 +1,42 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "BaseAL"
-version = "1.2.1"
+# The version is read from baseal/__init__.py (single source of truth).
+dynamic = ["version"]
+description = "Benchmarking active learning sampling strategies on pre-computed embeddings"
+readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.11,<3.13"
+# Lower bounds only, so BaseAL can be added to other projects. Exact versions
+# for this repository are recorded in uv.lock. Tested with NumPy 1.26 and 2.x.
 dependencies = [
-    "torch>=2.6",
-    "scikit-learn>=1.7.1",
+    "numpy>=1.24",
     "pandas>=2.2.3",
-    "librosa>=0.10.0",
-    "matplotlib>=3.7.0",
-    "fastapi==0.104.1",
-    "uvicorn[standard]==0.24.0",
-    "numpy>=1.24.0,<2.0",
-    "python-multipart==0.0.6",
-    "umap-learn",
+    "scikit-learn>=1.7.1",
     "scikit-activeml>=0.6.2",
-    "faiss-cpu",
-    "pyyaml",
-    "soundfile",
-    "jupyter>=1.1.1",
+    "faiss-cpu>=1.8",
+    "torch>=2.6",
+    "umap-learn>=0.5.5",
+    "matplotlib>=3.7.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
+# The web app's API server (`baseal-api`)
+api = [
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "python-multipart>=0.0.6",
+    "librosa>=0.10.0",
+    "soundfile>=0.12",
+]
+# Running the example notebooks in baseal/docs/
+notebooks = [
+    "jupyter>=1.1.1",
+]
 test = [
     "pytest>=7.4",
 ]
@@ -32,8 +44,29 @@ docs = [
     "pdoc>=15.0",
 ]
 
-[tool.setuptools]
-packages = []  # No packages to include - BaseAL is a project root, not a package
+[dependency-groups]
+# Installed by a plain `uv sync` in this repository, so working on BaseAL
+# still gives the web app and notebooks without naming the extras.
+dev = [
+    "baseal[api,notebooks]",
+]
+
+[project.scripts]
+# Starts the web app's API server: `baseal-api --help`
+baseal-api = "baseal.api.main:main"
+
+[project.urls]
+Homepage = "https://github.com/BenMcEwen1/BaseAL"
+Documentation = "https://benmcewen1.github.io/BaseAL/"
+Issues = "https://github.com/BenMcEwen1/BaseAL/issues"
+
+[tool.setuptools.packages.find]
+include = ["baseal*"]
+# Only directories with an __init__.py, so docs/ and baselines/ stay out of the wheel.
+namespaces = false
+
+[tool.setuptools.dynamic]
+version = {attr = "baseal.__version__"}
 
 [tool.uv]
 required-environments = ["sys_platform == 'win32' and python_full_version >= '3.11' and python_full_version < '3.13'"]
@@ -42,5 +75,4 @@ required-environments = ["sys_platform == 'win32' and python_full_version >= '3.
 bacpipe = { workspace = true }
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
 testpaths = ["tests"]

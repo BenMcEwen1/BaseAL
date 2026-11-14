@@ -4,7 +4,7 @@ labels: [question]
 body:
   - type: markdown
     attributes:
-      value: Please check the notebooks in core/docs/ and the API reference (https://benmcewen1.github.io/BaseAL/) first.
+      value: Please check the notebooks in baseal/docs/ and the API reference (https://benmcewen1.github.io/BaseAL/) first.
   - type: textarea
     id: question
     attributes:

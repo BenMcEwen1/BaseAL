@@ -12,7 +12,7 @@ import {
 } from '../utils/apiClient';
 
 export default function ManagerPanel({ dimensionReduction, projection, onEmbeddingsUpdate, onExperimentSelect, onTrainingUpdate }) {
-  const [configPath, setConfigPath] = useState('core/config.yml');
+  const [configPath, setConfigPath] = useState('baseal/config.yml');
   const [experiments, setExperiments] = useState([]);
   const [selectedExperimentIndex, setSelectedExperimentIndex] = useState(null);
   const [managerSummary, setManagerSummary] = useState(null);

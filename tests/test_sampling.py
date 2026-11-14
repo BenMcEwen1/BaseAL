@@ -1,5 +1,5 @@
 """
-Tests for core/utils/sampling.py (SamplingStrategy, WarmupStrategy).
+Tests for baseal/utils/sampling.py (SamplingStrategy, WarmupStrategy).
 
 Most tests below use small hand-constructed synthetic inputs on purpose --
 they check exact algorithmic invariants (e.g. "the most ambiguous prediction
@@ -12,8 +12,8 @@ issues (e.g. FAISS/HNSW behaviour at real scale) the synthetic tests can't.
 import numpy as np
 import pytest
 
-from core.active_learner import ActiveLearner
-from core.utils.sampling import SamplingStrategy, WarmupStrategy, densityEstimation
+from baseal.active_learner import ActiveLearner
+from baseal.utils.sampling import SamplingStrategy, WarmupStrategy, densityEstimation
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +280,7 @@ def test_warmup_random_selects_n_samples():
 
 def test_warmup_density_prefers_points_in_dense_region():
     # `densityEstimation(..., method='knn')` inverts k-NN distance to a
-    # proximity score (see core/utils/sampling.py), so a point surrounded by
+    # proximity score (see baseal/utils/sampling.py), so a point surrounded by
     # many close neighbours scores higher than an isolated outlier -- density
     # warmup should therefore prefer points inside the cluster.
     rng = np.random.default_rng(0)

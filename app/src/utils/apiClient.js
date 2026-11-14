@@ -207,10 +207,10 @@ export async function getActiveLearningState() {
 
 /**
  * Initialize Manager with config file
- * @param {string} configPath - Path to config file (default: "core/config.yml")
+ * @param {string} configPath - Path to config file (default: "baseal/config.yml")
  * @returns {Promise<Object>} Status and initial summary
  */
-export async function initializeManager(configPath = "core/config.yml") {
+export async function initializeManager(configPath = "baseal/config.yml") {
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/manager/initialize?config_path=${encodeURIComponent(configPath)}`,

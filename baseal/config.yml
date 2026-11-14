@@ -12,12 +12,12 @@ experiments:
     device: cpu
     pretrain_samples: null
 
-  - name: Margin
+  - name: CoreSet
     embeddings_dir: ESC10_BASEAL/embeddings/birdnet/
     annotations_path: ESC10_BASEAL/labels.csv
     model_name: birdnet
     hidden_dim: null
-    sampling_strategy: margin_multilabel
+    sampling_strategy: sklearn_coreset
     learning_rate: 0.001
     repeats: 1
     device: cpu

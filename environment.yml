@@ -2,6 +2,7 @@
 #
 #   conda env create -f environment.yml
 #   conda activate baseal
+#   pip install --no-deps -e .     # installs BaseAL itself
 #
 # Compiled dependencies (PyTorch, FAISS, NumPy) come from conda-forge so they
 # share one set of native libraries. Installing them with pip on top of an
@@ -16,7 +17,7 @@ dependencies:
   - pip>=23
   - pytorch>=2.6
   - faiss-cpu
-  - numpy>=1.24,<2.0
+  - numpy>=1.24
   - scikit-learn>=1.7.1
   - pandas>=2.2.3
   - librosa>=0.10.0
@@ -25,10 +26,10 @@ dependencies:
   - pyyaml
   - pysoundfile
   - jupyter
-  - fastapi==0.104.1
-  - uvicorn-standard==0.24.0
-  - python-multipart==0.0.6
+  - fastapi>=0.104.1
+  - uvicorn-standard>=0.24.0
+  - python-multipart>=0.0.6
   - pytest>=7.4
   - pip:
-      # Not packaged on conda-forge. 1.x requires numpy>=2, so stay on 0.x.
-      - scikit-activeml>=0.6.2,<1.0
+      # Not packaged on conda-forge.
+      - scikit-activeml>=0.6.2

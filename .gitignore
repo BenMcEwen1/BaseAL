@@ -29,8 +29,8 @@ results
 test_data
 planning
 scripts
-core/baselines/participant
-core/baselines/original
+baseal/baselines/participant
+baseal/baselines/original
 
 *.code-workspace
 /.vscode/

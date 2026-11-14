@@ -40,7 +40,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     matplotlib>=3.7.0 \
     pyyaml \
     soundfile \
-    python-multipart==0.0.6
+    python-multipart==0.0.6 && \
+    pip install --no-cache-dir --no-deps -e .
 
 # Build React frontend (empty VITE_API_URL = same-origin requests)
 WORKDIR $HOME/app/app

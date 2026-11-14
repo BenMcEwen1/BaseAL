@@ -2,13 +2,13 @@ import { useState } from 'react';
 import NotebookRenderer from './NotebookRenderer';
 
 // Import notebooks directly as URLs
-import notebook00 from '../../../core/docs/00_introduction.ipynb?url';
-import notebook01 from '../../../core/docs/01_getting_started.ipynb?url';
-import notebook02 from '../../../core/docs/02_understanding_data.ipynb?url';
-import notebook03 from '../../../core/docs/03_neural_network_model.ipynb?url';
-import notebook04 from '../../../core/docs/04_active_learning_loop.ipynb?url';
-import notebook05 from '../../../core/docs/05_complete_pipeline.ipynb?url';
-import notebook06 from '../../../core/docs/06_experiment_manager.ipynb?url';
+import notebook00 from '../../../baseal/docs/00_introduction.ipynb?url';
+import notebook01 from '../../../baseal/docs/01_getting_started.ipynb?url';
+import notebook02 from '../../../baseal/docs/02_understanding_data.ipynb?url';
+import notebook03 from '../../../baseal/docs/03_neural_network_model.ipynb?url';
+import notebook04 from '../../../baseal/docs/04_active_learning_loop.ipynb?url';
+import notebook05 from '../../../baseal/docs/05_complete_pipeline.ipynb?url';
+import notebook06 from '../../../baseal/docs/06_experiment_manager.ipynb?url';
 
 const NOTEBOOKS = [
   {

@@ -138,55 +138,66 @@ wheels = [
 
 [[package]]
 name = "baseal"
-version = "1.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "faiss-cpu" },
-    { name = "fastapi" },
-    { name = "jupyter" },
-    { name = "librosa" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "scikit-activeml" },
     { name = "scikit-learn" },
-    { name = "soundfile" },
     { name = "torch" },
     { name = "umap-learn" },
-    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.optional-dependencies]
+api = [
+    { name = "fastapi" },
+    { name = "librosa" },
+    { name = "python-multipart" },
+    { name = "soundfile" },
+    { name = "uvicorn", extra = ["standard"] },
+]
 docs = [
     { name = "pdoc" },
+]
+notebooks = [
+    { name = "jupyter" },
 ]
 test = [
     { name = "pytest" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "baseal", extra = ["api", "notebooks"] },
+]
+
 [package.metadata]
 requires-dist = [
-    { name = "faiss-cpu" },
-    { name = "fastapi", specifier = "==0.104.1" },
-    { name = "jupyter", specifier = ">=1.1.1" },
-    { name = "librosa", specifier = ">=0.10.0" },
+    { name = "faiss-cpu", specifier = ">=1.8" },
+    { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.104.1" },
+    { name = "jupyter", marker = "extra == 'notebooks'", specifier = ">=1.1.1" },
+    { name = "librosa", marker = "extra == 'api'", specifier = ">=0.10.0" },
     { name = "matplotlib", specifier = ">=3.7.0" },
-    { name = "numpy", specifier = ">=1.24.0,<2.0" },
+    { name = "numpy", specifier = ">=1.24" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pdoc", marker = "extra == 'docs'", specifier = ">=15.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.4" },
-    { name = "python-multipart", specifier = "==0.0.6" },
-    { name = "pyyaml" },
+    { name = "python-multipart", marker = "extra == 'api'", specifier = ">=0.0.6" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "scikit-activeml", specifier = ">=0.6.2" },
     { name = "scikit-learn", specifier = ">=1.7.1" },
-    { name = "soundfile" },
+    { name = "soundfile", marker = "extra == 'api'", specifier = ">=0.12" },
     { name = "torch", specifier = ">=2.6" },
-    { name = "umap-learn" },
-    { name = "uvicorn", extras = ["standard"], specifier = "==0.24.0" },
+    { name = "umap-learn", specifier = ">=0.5.5" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'api'", specifier = ">=0.24.0" },
 ]
-provides-extras = ["test", "docs"]
+provides-extras = ["api", "notebooks", "test", "docs"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "baseal", extras = ["api", "notebooks"] }]
 
 [[package]]
 name = "beautifulsoup4"

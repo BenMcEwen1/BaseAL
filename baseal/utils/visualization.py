@@ -3,7 +3,7 @@ Notebook-friendly embedding visualisation utilities for BaseAL datasets.
 
 Usage
 -----
-from core.utils.visualization import visualize_embeddings
+from baseal.utils.visualization import visualize_embeddings
 import numpy as np
 
 viz = visualize_embeddings("ESC10_BASEAL", idxes=np.arange(500), with_label=True)
